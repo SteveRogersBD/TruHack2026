@@ -75,7 +75,7 @@ function StepItem({ step, index }) {
     s === 'completed' ? { bg: 'rgba(34,197,94,0.15)',  color: '#4ADE80', border: 'none' } :
     s === 'active'    ? { bg: 'rgba(59,130,246,0.15)', color: '#60A5FA', border: 'none' } :
                         { bg: 'rgba(255,255,255,0.03)', color: '#444', border: '0.5px solid rgba(255,255,255,0.08)' }
-  const titleColor = s === 'active' ? '#DDDDDD' : s === 'completed' ? '#666' : '#444'
+  const titleColor = s === 'active' ? '#EDEDEF' : s === 'completed' ? '#666' : '#444'
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '3px 0' }}>
@@ -106,11 +106,13 @@ function CtrlBtn({ icon: Icon, label, active, onClick, title: tipTitle }) {
       style={{
         flex: 1,
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-        height: 28, borderRadius: 6, fontSize: 10,
+        height: 32, borderRadius: 6, fontSize: 11,
         border: `0.5px solid ${active ? 'rgba(34,197,94,0.3)' : 'rgba(255,255,255,0.08)'}`,
         background: active ? 'rgba(34,197,94,0.10)' : 'rgba(255,255,255,0.05)',
         color: active ? '#4ADE80' : '#888888',
-        cursor: 'pointer', transition: 'all 150ms ease',
+        boxShadow: active ? '0 0 8px rgba(34,197,94,0.2)' : 'none',
+        cursor: 'pointer',
+        transition: 'all 200ms cubic-bezier(0.16,1,0.3,1)',
       }}
       onMouseEnter={(e) => {
         if (!active) { e.currentTarget.style.background = 'rgba(255,255,255,0.10)'; e.currentTarget.style.color = '#CCCCCC' }
@@ -151,7 +153,7 @@ export default function AvatarSidebar({
         flexShrink: 0,
         display: 'flex',
         flexDirection: 'column',
-        background: '#111115',
+        background: 'linear-gradient(180deg, #13131a 0%, #0f0f14 100%)',
         borderRadius: 14,
         overflow: 'hidden',
         padding: 14,
@@ -159,72 +161,91 @@ export default function AvatarSidebar({
         boxShadow: '0 2px 24px rgba(0,0,0,0.5), inset 0 0 0 0.5px rgba(255,255,255,0.06)',
       }}
     >
-      {/* ── Avatar card — matches the screenshot ──────────────────── */}
-      <div
-        style={{
-          position: 'relative',
-          flex: '0 0 auto',
-          /* Fills roughly 58% of panel height while staying proportional */
-          aspectRatio: '3/4',
-          maxHeight: 'calc(100% - 160px)',
-          borderRadius: 16,
-          overflow: 'hidden',
-          background: 'linear-gradient(180deg, #1a1a20 0%, #101014 100%)',
-          boxShadow: '0 4px 32px rgba(0,0,0,0.6), inset 0 0 0 0.5px rgba(255,255,255,0.07)',
-        }}
-      >
-        {/* Three.js canvas */}
-        <Canvas
-          camera={{ position: [0, 0.24, 1.6], fov: 46 }}
-          style={{ width: '100%', height: '100%', display: 'block' }}
-          gl={{ antialias: true }}
+      {/* ── Avatar card wrapper with ambient glow ─────────────────── */}
+      <div style={{ position: 'relative', flex: '0 0 auto', aspectRatio: '3/4', maxHeight: 'calc(100% - 180px)' }}>
+        {/* Ambient glow behind avatar */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: '-20px',
+            borderRadius: '50%',
+            background: 'radial-gradient(ellipse at 50% 40%, rgba(94,106,210,0.12) 0%, transparent 65%)',
+            filter: 'blur(20px)',
+            pointerEvents: 'none',
+            zIndex: 0,
+          }}
+        />
+
+        {/* ── Avatar card — matches the screenshot ──────────────────── */}
+        <div
+          style={{
+            position: 'relative',
+            zIndex: 1,
+            width: '100%',
+            height: '100%',
+            borderRadius: 16,
+            overflow: 'hidden',
+            background: 'linear-gradient(180deg, #1a1a20 0%, #101014 100%)',
+            boxShadow: '0 4px 32px rgba(0,0,0,0.6), inset 0 0 0 0.5px rgba(255,255,255,0.07)',
+          }}
         >
-          <ambientLight intensity={1.0} />
-          <directionalLight position={[2, 4, 3]} intensity={1.4} />
-          <directionalLight position={[-1.5, 1, 1]} intensity={0.35} color="#5E6AD2" />
-          <Suspense fallback={<FallbackSphere />}>
-            <RPMModel />
-            <Environment preset="city" />
-          </Suspense>
-        </Canvas>
+          {/* Three.js canvas */}
+          <Canvas
+            camera={{ position: [0, 0.24, 1.6], fov: 46 }}
+            style={{ width: '100%', height: '100%', display: 'block' }}
+            gl={{ antialias: true }}
+          >
+            <ambientLight intensity={1.0} />
+            <directionalLight position={[2, 4, 3]} intensity={1.4} />
+            <directionalLight position={[-1.5, 1, 1]} intensity={0.35} color="#5E6AD2" />
+            <directionalLight position={[0, 2, -1]} intensity={0.2} color="#818CF8" />
+            <Suspense fallback={<FallbackSphere />}>
+              <RPMModel />
+              <Environment preset="city" />
+            </Suspense>
+          </Canvas>
 
-        {/* Vignette — darker edges, lighter center (draws eye to face) */}
-        <div style={{
-          position: 'absolute', inset: 0, pointerEvents: 'none',
-          background: 'radial-gradient(ellipse at 50% 38%, transparent 35%, rgba(0,0,0,0.52) 100%)',
-          borderRadius: 'inherit',
-        }} />
-
-        {/* ── Top-left: status indicator (like screenshot) ─────── */}
-        <Badge style={{ top: 10, left: 10, background: 'rgba(0,0,0,0.52)' }}>
-          <span style={{
-            width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
-            background: dotColor,
-            boxShadow: `0 0 6px ${dotColor}`,
-            transition: 'background 300ms ease, box-shadow 300ms ease',
+          {/* Vignette — darker edges, lighter center (draws eye to face) */}
+          <div style={{
+            position: 'absolute', inset: 0, pointerEvents: 'none',
+            background: 'radial-gradient(ellipse at 50% 38%, transparent 35%, rgba(0,0,0,0.52) 100%)',
+            borderRadius: 'inherit',
           }} />
-          <span style={{ fontSize: 11, color: '#AAAAAA', lineHeight: 1 }}>{leftLabel}</span>
-        </Badge>
 
-        {/* ── Top-right: state badge (like screenshot) ──────────── */}
-        <Badge style={{ top: 10, right: 10, background: badgeBg, border: `0.5px solid ${badgeFg}33` }}>
-          <span style={{
-            fontSize: 10, fontWeight: 500, letterSpacing: '0.05em',
-            textTransform: 'uppercase', color: badgeFg,
-            transition: 'color 300ms ease',
-          }}>
-            {badgeText}
-          </span>
-        </Badge>
+          {/* ── Top-left: status indicator (like screenshot) ─────── */}
+          <Badge style={{ top: 10, left: 10, background: 'rgba(0,0,0,0.52)' }}>
+            <span style={{
+              width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
+              background: dotColor,
+              boxShadow: `0 0 6px ${dotColor}`,
+              transition: 'background 300ms ease, box-shadow 300ms ease',
+            }} />
+            <span style={{ fontSize: 11, color: '#AAAAAA', lineHeight: 1 }}>{leftLabel}</span>
+          </Badge>
 
-        {/* ── Bottom-right: emotion label (like screenshot) ─────── */}
-        <Badge style={{ bottom: 10, right: 10, background: 'rgba(255,255,255,0.08)' }}>
-          <span style={{ fontSize: 11, color: '#999999' }}>{emotion}</span>
-        </Badge>
+          {/* ── Top-right: state badge (like screenshot) ──────────── */}
+          <Badge style={{ top: 10, right: 10, background: badgeBg, border: `0.5px solid ${badgeFg}33` }}>
+            <span style={{
+              fontSize: 10, fontWeight: 500, letterSpacing: '0.05em',
+              textTransform: 'uppercase', color: badgeFg,
+              transition: 'color 300ms ease',
+            }}>
+              {badgeText}
+            </span>
+          </Badge>
+
+          {/* ── Bottom-right: emotion label (like screenshot) ─────── */}
+          <Badge style={{ bottom: 10, right: 10, background: 'rgba(255,255,255,0.08)' }}>
+            <span style={{ fontSize: 11, color: '#999999' }}>{emotion}</span>
+          </Badge>
+        </div>
       </div>
 
       {/* ── Voice controls ────────────────────────────────────────── */}
       <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 5 }}>
+        <p style={{ fontSize: 9, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#555555', marginBottom: 6 }}>
+          Controls
+        </p>
         {/* Row 1 */}
         <div style={{ display: 'flex', gap: 4 }}>
           <CtrlBtn
@@ -240,12 +261,13 @@ export default function AvatarSidebar({
               onChange={(e) => onSpeedChange?.(e.target.value)}
               aria-label="Playback speed"
               style={{
-                width: '100%', height: 28, appearance: 'none',
+                width: '100%', height: 32, appearance: 'none',
                 background: 'rgba(255,255,255,0.05)',
                 border: '0.5px solid rgba(255,255,255,0.08)',
                 borderRadius: 6, color: '#888888', fontSize: 10,
                 cursor: 'pointer', padding: '0 8px', outline: 'none',
-                transition: 'all 150ms ease',
+                fontFamily: 'inherit',
+                transition: 'all 200ms cubic-bezier(0.16,1,0.3,1)',
               }}
               onFocus={(e)     => { e.currentTarget.style.borderColor = 'rgba(94,106,210,0.4)' }}
               onBlur={(e)      => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)' }}
@@ -309,13 +331,25 @@ export default function AvatarSidebar({
       </div>
 
       {/* ── Resize hint ───────────────────────────────────────────── */}
-      <div style={{ display: 'flex', justifyContent: 'center', flexShrink: 0, paddingBottom: 2 }}>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flexShrink: 0, paddingBottom: 2 }}>
         <div
-          style={{ width: 28, height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.07)', cursor: 'col-resize', transition: 'background 150ms ease' }}
+          style={{ display: 'inline-flex', alignItems: 'center', cursor: 'col-resize' }}
           title="Drag to resize"
-          onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.2)' }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.07)' }}
-        />
+          onMouseEnter={(e) => {
+            const bar = e.currentTarget.querySelector('[data-resizebar]')
+            if (bar) bar.style.background = 'rgba(255,255,255,0.2)'
+          }}
+          onMouseLeave={(e) => {
+            const bar = e.currentTarget.querySelector('[data-resizebar]')
+            if (bar) bar.style.background = 'rgba(255,255,255,0.07)'
+          }}
+        >
+          <div
+            data-resizebar="1"
+            style={{ width: 40, height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.07)', transition: 'background 150ms ease' }}
+          />
+          <span style={{ fontSize: 9, color: 'rgba(255,255,255,0.15)', marginLeft: 6 }}>drag</span>
+        </div>
       </div>
     </aside>
   )

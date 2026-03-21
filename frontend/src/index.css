@@ -4,6 +4,10 @@
 @tailwind components;
 @tailwind utilities;
 
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 :root {
   color-scheme: dark;
   --easing-expo: cubic-bezier(0.16, 1, 0.3, 1);
@@ -33,17 +37,34 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* ── Global font inheritance ─────────────────────────── */
+input, select, textarea, button {
+  font-family: inherit;
+}
+
+/* ── Selection ───────────────────────────────────────── */
+::selection {
+  background: rgba(94, 106, 210, 0.35);
+  color: #EDEDEF;
+}
+
 /* ── Scrollbars ──────────────────────────────────────── */
 ::-webkit-scrollbar          { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track    { background: transparent; }
-::-webkit-scrollbar-thumb    { background: rgba(255,255,255,0.12); border-radius: 99px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.22); }
+::-webkit-scrollbar-thumb    { background: rgba(255,255,255,0.1); border-radius: 2px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
 
 /* ── Ambient blob animation ──────────────────────────── */
 @keyframes blobDrift {
   0%,100% { transform: translate(0, 0) scale(1); }
-  33%     { transform: translate(30px, -20px) scale(1.04); }
-  66%     { transform: translate(-20px, 15px) scale(0.97); }
+  33%     { transform: translate(20px, -15px) scale(1.03); }
+  66%     { transform: translate(-10px, 20px) scale(0.97); }
+}
+
+/* ── Fade in animation ───────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 
 /* ── Skeleton shimmer ────────────────────────────────── */
@@ -86,6 +107,8 @@ body {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
   }
+  @keyframes blobDrift { 0%,100% { transform: none; } }
+  @keyframes fadeIn    { from { opacity: 1; transform: none; } to { opacity: 1; transform: none; } }
 }
 
 /* ── Material symbols (legacy compat) ────────────────── */

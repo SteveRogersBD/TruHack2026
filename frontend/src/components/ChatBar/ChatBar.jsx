@@ -16,6 +16,7 @@ function ThinkingDots() {
       className="flex items-end gap-2 px-3 py-2"
       aria-live="polite"
       aria-label="Tutor is thinking"
+      style={{ animation: 'fadeIn 200ms ease' }}
     >
       <div
         style={{
@@ -108,7 +109,8 @@ function MessageBubble({ message }) {
           style={
             isUser
               ? {
-                  background: 'linear-gradient(135deg, #5E6AD2, #7B87E8)',
+                  background: 'linear-gradient(135deg, #5E6AD2 0%, #6B78E8 100%)',
+                  boxShadow: '0 2px 8px rgba(94,106,210,0.25)',
                   color: '#fff',
                   borderRadius: '12px 12px 3px 12px',
                   padding: '7px 12px',
@@ -118,6 +120,7 @@ function MessageBubble({ message }) {
               : {
                   background: 'rgba(255,255,255,0.04)',
                   border: '0.5px solid rgba(255,255,255,0.08)',
+                  borderLeft: '2px solid rgba(94,106,210,0.3)',
                   color: '#EDEDEF',
                   borderRadius: '12px 12px 12px 3px',
                   padding: '7px 12px',
@@ -227,7 +230,7 @@ export default function ChatBar({ sessionId, onNewStructured }) {
         flexShrink: 0,
         display: 'flex',
         flexDirection: 'column',
-        background: 'var(--chat-bg, #0f0f12)',
+        background: 'linear-gradient(180deg, #0c0c0f 0%, #0a0a0d 100%)',
         borderTop: '0.5px solid rgba(255,255,255,0.06)',
       }}
     >
@@ -242,7 +245,7 @@ export default function ChatBar({ sessionId, onNewStructured }) {
             display: 'flex',
             alignItems: 'center',
             gap: 4,
-            padding: '5px 12px',
+            padding: '6px 16px',
             background: 'transparent',
             border: 'none',
             borderBottom: historyOpen ? '0.5px solid rgba(255,255,255,0.06)' : 'none',
@@ -252,7 +255,7 @@ export default function ChatBar({ sessionId, onNewStructured }) {
             transition: 'color 150ms ease',
             alignSelf: 'flex-start',
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.color = '#888888' }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = '#AAAAAA' }}
           onMouseLeave={(e) => { e.currentTarget.style.color = '#555555' }}
         >
           {historyOpen ? <ChevronDown size={11} /> : <ChevronUp size={11} />}
@@ -264,7 +267,7 @@ export default function ChatBar({ sessionId, onNewStructured }) {
       {historyOpen && (
         <div
           style={{
-            maxHeight: 260,
+            maxHeight: 300,
             overflowY: 'auto',
             borderBottom: '0.5px solid rgba(255,255,255,0.06)',
             paddingBottom: 4,
@@ -312,13 +315,15 @@ export default function ChatBar({ sessionId, onNewStructured }) {
               }}
               onMouseEnter={(e) => {
                 if (!isSending) {
-                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.22)'
-                  e.currentTarget.style.color = '#CCCCCC'
+                  e.currentTarget.style.boxShadow = '0 0 0 1px rgba(255,255,255,0.15)'
+                  e.currentTarget.style.color = '#EDEDEF'
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.08)'
                 }
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)'
+                e.currentTarget.style.boxShadow = 'none'
                 e.currentTarget.style.color = '#888888'
+                e.currentTarget.style.background = 'rgba(255,255,255,0.04)'
               }}
               onMouseDown={(e) => {
                 if (!isSending) e.currentTarget.style.transform = 'scale(0.97)'
@@ -337,7 +342,7 @@ export default function ChatBar({ sessionId, onNewStructured }) {
           display: 'flex',
           alignItems: 'center',
           gap: 6,
-          padding: '8px 12px',
+          padding: '10px 14px',
         }}
       >
         <input
@@ -352,18 +357,19 @@ export default function ChatBar({ sessionId, onNewStructured }) {
           aria-label="Chat input"
           style={{
             flex: 1,
-            height: 34,
-            fontSize: 12,
+            height: 38,
+            fontSize: 13,
             padding: '0 10px',
             borderRadius: 8,
             background: 'rgba(255,255,255,0.04)',
             border: '0.5px solid rgba(255,255,255,0.10)',
             color: '#EDEDEF',
             outline: 'none',
+            fontFamily: 'inherit',
             transition: 'border-color 150ms ease',
             opacity: (!sessionId || isSending) ? 0.5 : 1,
           }}
-          onFocus={(e)  => { e.currentTarget.style.borderColor = 'rgba(94,106,210,0.5)' }}
+          onFocus={(e)  => { e.currentTarget.style.borderColor = 'rgba(94,106,210,0.6)' }}
           onBlur={(e)   => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)' }}
         />
 
@@ -373,7 +379,7 @@ export default function ChatBar({ sessionId, onNewStructured }) {
           disabled={!canSend || !sessionId}
           aria-label="Send message"
           style={{
-            height: 34,
+            height: 38,
             padding: '0 14px',
             fontSize: 12,
             fontWeight: 500,
@@ -387,14 +393,20 @@ export default function ChatBar({ sessionId, onNewStructured }) {
             alignItems: 'center',
             gap: 5,
             transition: 'all 200ms cubic-bezier(0.16,1,0.3,1)',
-            boxShadow: canSend && sessionId ? '0 0 14px rgba(94,106,210,0.3)' : 'none',
+            boxShadow: canSend && sessionId ? '0 0 18px rgba(94,106,210,0.4)' : 'none',
             flexShrink: 0,
           }}
           onMouseEnter={(e) => {
-            if (canSend && sessionId) e.currentTarget.style.background = 'rgba(94,106,210,1)'
+            if (canSend && sessionId) {
+              e.currentTarget.style.background = 'rgba(94,106,210,1)'
+              e.currentTarget.style.boxShadow = '0 0 24px rgba(94,106,210,0.55)'
+            }
           }}
           onMouseLeave={(e) => {
-            if (canSend && sessionId) e.currentTarget.style.background = 'rgba(94,106,210,0.9)'
+            if (canSend && sessionId) {
+              e.currentTarget.style.background = 'rgba(94,106,210,0.9)'
+              e.currentTarget.style.boxShadow = '0 0 18px rgba(94,106,210,0.4)'
+            }
           }}
           onMouseDown={(e) => {
             if (canSend && sessionId) e.currentTarget.style.transform = 'scale(0.97)'
