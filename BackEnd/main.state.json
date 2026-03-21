@@ -1,0 +1,16 @@
+{
+  "user_id": "learner-1",
+  "role": "learner",
+  "session_id": "431766dc-2ed7-4405-9ff0-e5ff8000d411",
+  "learning_goal": "",
+  "current_code": "",
+  "last_output": "",
+  "last_error": null,
+  "feature_flags": [],
+  "updated_at": "2026-03-21T08:24:16.783115+00:00",
+  "subject": {
+    "course_name": "general",
+    "topic_name": "unspecified",
+    "details": null
+  }
+}

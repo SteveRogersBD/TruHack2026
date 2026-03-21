@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Scholar IDE - Precision Learning</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              "secondary-fixed": "#cbceff",
+              "surface-variant": "#192540",
+              "surface-dim": "#060e20",
+              "surface-container-lowest": "#000000",
+              "tertiary-dim": "#f271b5",
+              "on-primary": "#00374d",
+              "inverse-primary": "#00668b",
+              "primary-fixed-dim": "#05a9e3",
+              "primary": "#3bbffa",
+              "surface-bright": "#1f2b49",
+              "surface-tint": "#3bbffa",
+              "outline": "#6d758c",
+              "on-secondary-fixed": "#192490",
+              "surface-container": "#0f1930",
+              "error-container": "#9f0519",
+              "error": "#ff716c",
+              "on-primary-fixed": "#00121d",
+              "on-tertiary-fixed-variant": "#73004b",
+              "surface-container-high": "#141f38",
+              "primary-container": "#22b1ec",
+              "on-primary-container": "#002b3d",
+              "secondary-container": "#2f3aa3",
+              "surface-container-highest": "#192540",
+              "on-tertiary-fixed": "#360021",
+              "outline-variant": "#40485d",
+              "inverse-on-surface": "#4d556b",
+              "tertiary-container": "#f673b7",
+              "surface": "#060e20",
+              "on-primary-fixed-variant": "#003a50",
+              "primary-fixed": "#2db7f2",
+              "tertiary-fixed-dim": "#f976ba",
+              "background": "#060e20",
+              "on-background": "#dee5ff",
+              "on-secondary-fixed-variant": "#3a45ad",
+              "on-secondary": "#000974",
+              "secondary-dim": "#8a95ff",
+              "on-surface": "#dee5ff",
+              "secondary-fixed-dim": "#babfff",
+              "on-tertiary": "#5f003e",
+              "primary-dim": "#05a9e3",
+              "tertiary-fixed": "#ff8bc5",
+              "error-dim": "#d7383b",
+              "on-error-container": "#ffa8a3",
+              "on-secondary-container": "#c9cdff",
+              "on-error": "#490006",
+              "on-surface-variant": "#a3aac4",
+              "on-tertiary-container": "#4a002f",
+              "secondary": "#8a95ff",
+              "tertiary": "#ff86c3",
+              "inverse-surface": "#faf8ff",
+              "surface-container-low": "#091328"
+            },
+            fontFamily: {
+              "headline": ["Inter"],
+              "body": ["Inter"],
+              "label": ["Inter"],
+              "mono": ["JetBrains Mono"]
+            },
+            borderRadius: {"DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem"},
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #40485d; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6d758c; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body overflow-hidden selection:bg-primary/30">
+<!-- TopAppBar -->
+<header class="bg-[#060e20] dark:bg-[#060e20] flex justify-between items-center px-6 py-3 w-full border-b border-slate-800/50 sticky top-0 z-50">
+<div class="flex items-center gap-8">
+<span class="text-xl font-black tracking-tighter text-sky-400">Scholar IDE</span>
+<nav class="hidden md:flex gap-6 items-center">
+<a class="text-sky-400 font-bold border-b-2 border-sky-400 pb-1 font-sans text-sm tracking-tight" href="#">Workspace</a>
+<a class="text-slate-400 font-medium hover:text-slate-200 transition-colors duration-200 font-sans text-sm tracking-tight" href="#">Documentation</a>
+<a class="text-slate-400 font-medium hover:text-slate-200 transition-colors duration-200 font-sans text-sm tracking-tight" href="#">Community</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="flex items-center bg-[#1f2b49]/50 rounded-lg px-3 py-1.5 gap-2 border border-outline-variant/15">
+<span class="material-symbols-outlined text-sm text-outline">search</span>
+<input class="bg-transparent border-none outline-none text-xs text-on-surface-variant w-48 placeholder:text-outline" placeholder="Quick search (⌘K)" type="text"/>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 text-slate-400 hover:bg-[#1f2b49]/50 transition-colors duration-200 rounded">
+<span class="material-symbols-outlined">terminal</span>
+</button>
+<button class="p-2 text-slate-400 hover:bg-[#1f2b49]/50 transition-colors duration-200 rounded relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-tertiary rounded-full"></span>
+</button>
+<button class="bg-primary hover:bg-primary-container text-on-primary-container font-bold text-xs px-4 py-2 rounded-lg transition-all active:scale-95 duration-150">
+                    Deploy
+                </button>
+</div>
+</div>
+</header>
+<div class="flex h-[calc(100vh-57px)] w-full overflow-hidden">
+<!-- Left Pane: SideNavBar (Explorer, Curriculum, Library) -->
+<aside class="bg-[#091328] dark:bg-[#091328] flex flex-col h-full border-r border-slate-800/30 w-64 shrink-0 overflow-y-auto">
+<!-- User Profile Header -->
+<div class="p-6 border-b border-outline-variant/10">
+<div class="flex items-center gap-3 mb-4">
+<div class="relative">
+<img alt="User Profile" class="w-10 h-10 rounded-lg border-2 border-primary/20" data-alt="Cyberpunk style user profile avatar" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCI-WViP3_Jgzmq0UJI4BPvvB_of960giODb_m39BJ4rwayyV9BqIcXgKi_g2Rrdw3NsDemnMkbk0ZG1JBulnPNHJUzvgTEbx9Xl0B-vtt5UyWQcCUVlkDthQza_Pqj9TRUYyiOklCjzArNnNCoYxwJH2OjwwL5-thaEOvNAYvU6BMKMJ1AehTCMy2jQ9nYdHQow8jan0qVRjRXIfNcjuHhLIZTHSaEqq810D950HGzammdD9QcD3Hl7C0LLdX64WIlVADT6ztqKS-b"/>
+<span class="absolute -bottom-1 -right-1 w-3 h-3 bg-green-500 border-2 border-[#091328] rounded-full"></span>
+</div>
+<div>
+<h3 class="text-sm font-bold text-on-surface">Arch Scholar</h3>
+<p class="text-[10px] uppercase tracking-widest text-primary font-mono">Pro Plan</p>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-2">
+<div class="bg-surface-container p-2 rounded border border-outline-variant/10">
+<p class="text-[9px] text-outline uppercase tracking-wider mb-1">Streak</p>
+<p class="text-xs font-mono font-bold text-tertiary">14 Days</p>
+</div>
+<div class="bg-surface-container p-2 rounded border border-outline-variant/10">
+<p class="text-[9px] text-outline uppercase tracking-wider mb-1">Rank</p>
+<p class="text-xs font-mono font-bold text-secondary">Lvl 42</p>
+</div>
+</div>
+</div>
+<!-- Navigation Navigation -->
+<nav class="flex-1 py-4">
+<div class="px-4 mb-2">
+<button class="w-full bg-sky-500/10 text-sky-400 border border-sky-400/20 py-2.5 px-4 rounded text-xs font-mono uppercase tracking-widest text-left flex items-center gap-3 transition-all">
+<span class="material-symbols-outlined text-sm">add_box</span>
+                        New Project
+                    </button>
+</div>
+<div class="space-y-1 mt-4">
+<a class="bg-sky-500/10 text-sky-400 border-l-2 border-sky-400 py-3 px-6 flex items-center gap-3 font-mono text-xs uppercase tracking-widest transition-all" href="#">
+<span class="material-symbols-outlined text-lg">folder_copy</span>
+                        Explorer
+                    </a>
+<a class="text-slate-500 py-3 px-6 flex items-center gap-3 font-mono text-xs uppercase tracking-widest hover:bg-[#1f2b49] hover:text-slate-200 transition-all" href="#">
+<span class="material-symbols-outlined text-lg">menu_book</span>
+                        Curriculum
+                    </a>
+<a class="text-slate-500 py-3 px-6 flex items-center gap-3 font-mono text-xs uppercase tracking-widest hover:bg-[#1f2b49] hover:text-slate-200 transition-all" href="#">
+<span class="material-symbols-outlined text-lg">local_library</span>
+                        Library
+                    </a>
+<a class="text-slate-500 py-3 px-6 flex items-center gap-3 font-mono text-xs uppercase tracking-widest hover:bg-[#1f2b49] hover:text-slate-200 transition-all" href="#">
+<span class="material-symbols-outlined text-lg">bug_report</span>
+                        Debugger
+                    </a>
+<a class="text-slate-500 py-3 px-6 flex items-center gap-3 font-mono text-xs uppercase tracking-widest hover:bg-[#1f2b49] hover:text-slate-200 transition-all" href="#">
+<span class="material-symbols-outlined text-lg">settings</span>
+                        Settings
+                    </a>
+</div>
+<!-- Learning Curriculum Module -->
+<div class="mt-8 px-6">
+<h4 class="text-[10px] text-outline font-bold uppercase tracking-[0.2em] mb-4">Current Module</h4>
+<div class="relative p-4 bg-surface-container-high rounded-lg overflow-hidden border border-outline-variant/10">
+<div class="absolute top-0 right-0 w-16 h-16 bg-primary/5 rounded-full -mr-8 -mt-8"></div>
+<p class="text-[11px] font-medium text-on-surface mb-2">Advanced State Patterns</p>
+<div class="w-full bg-surface-dim h-1 rounded-full overflow-hidden">
+<div class="bg-primary h-full w-[65%] shadow-[0_0_8px_rgba(59,191,250,0.5)]"></div>
+</div>
+<p class="text-[9px] text-outline mt-2 font-mono">65% Completed</p>
+</div>
+</div>
+</nav>
+</aside>
+<!-- Middle Pane: Code Editor (IDE) -->
+<main class="flex-1 bg-surface flex flex-col relative overflow-hidden">
+<!-- Tabs -->
+<div class="flex bg-surface-container-low border-b border-outline-variant/10">
+<div class="bg-surface border-r border-outline-variant/10 px-4 py-2.5 flex items-center gap-2 border-t-2 border-primary group cursor-pointer">
+<span class="material-symbols-outlined text-amber-400 text-sm">javascript</span>
+<span class="text-xs font-mono text-on-surface">useDataHook.ts</span>
+<span class="material-symbols-outlined text-[10px] text-outline opacity-0 group-hover:opacity-100">close</span>
+</div>
+<div class="px-4 py-2.5 flex items-center gap-2 border-r border-outline-variant/10 hover:bg-surface-container transition-colors cursor-pointer">
+<span class="material-symbols-outlined text-sky-400 text-sm">css</span>
+<span class="text-xs font-mono text-outline">Layout.module.css</span>
+</div>
+<div class="px-4 py-2.5 flex items-center gap-2 border-r border-outline-variant/10 hover:bg-surface-container transition-colors cursor-pointer">
+<span class="material-symbols-outlined text-orange-400 text-sm">html</span>
+<span class="text-xs font-mono text-outline">index.html</span>
+</div>
+</div>
+<!-- Code Content Area -->
+<div class="flex-1 p-6 font-mono text-sm leading-relaxed overflow-y-auto bg-surface relative">
+<div class="flex gap-6">
+<div class="text-outline/40 text-right select-none pr-4 border-r border-outline-variant/5">
+                        1<br/>2<br/>3<br/>4<br/>5<br/>6<br/>7<br/>8<br/>9<br/>10<br/>11<br/>12<br/>13<br/>14<br/>15<br/>16
+                    </div>
+<div class="flex-1">
+<p><span class="text-tertiary">import</span> { <span class="text-secondary">useState</span>, <span class="text-secondary">useEffect</span> } <span class="text-tertiary">from</span> <span class="text-secondary-dim">'react'</span>;</p>
+<p> </p>
+<p><span class="text-outline italic">// Custom hook for architectural state management</span></p>
+<p><span class="text-tertiary">export const</span> <span class="text-primary">useDataHook</span> = (entityId: <span class="text-primary-dim">string</span>) =&gt; {</p>
+<p>  <span class="text-tertiary">const</span> [data, setData] = <span class="text-secondary">useState</span>&lt;<span class="text-primary-dim">any</span>&gt;(<span class="text-secondary-dim">null</span>);</p>
+<p>  <span class="text-tertiary">const</span> [loading, setLoading] = <span class="text-secondary">useState</span>(<span class="text-secondary-dim">true</span>);</p>
+<p> </p>
+<p>  <span class="text-secondary">useEffect</span>(() =&gt; {</p>
+<p>    <span class="text-tertiary">const</span> <span class="text-primary">fetchData</span> = <span class="text-tertiary">async</span> () =&gt; {</p>
+<p>      <span class="text-tertiary">try</span> {</p>
+<p>        <span class="text-tertiary">const</span> response = <span class="text-tertiary">await</span> <span class="text-secondary">fetch</span>(<span class="text-secondary-dim">`/api/v1/data/${entityId}`</span>);</p>
+<p>        <span class="text-tertiary">const</span> json = <span class="text-tertiary">await</span> response.<span class="text-secondary">json</span>();</p>
+<p>        <span class="text-secondary">setData</span>(json);</p>
+<p>      } <span class="text-tertiary">catch</span> (err) {</p>
+<p>        console.<span class="text-secondary">error</span>(<span class="text-secondary-dim">'Error fetching data'</span>, err);</p>
+<p>      } <span class="text-tertiary">finally</span> {</p>
+<p>        <span class="text-secondary">setLoading</span>(<span class="text-secondary-dim">false</span>);</p>
+<p>      }</p>
+</div>
+</div>
+<!-- Breadcrumbs -->
+<div class="absolute bottom-4 left-6 flex items-center gap-2 text-[10px] uppercase tracking-widest text-outline bg-surface/80 backdrop-blur-md px-3 py-1 rounded-full border border-outline-variant/10">
+<span>src</span>
+<span class="material-symbols-outlined text-[10px]">chevron_right</span>
+<span>hooks</span>
+<span class="material-symbols-outlined text-[10px]">chevron_right</span>
+<span class="text-primary">useDataHook.ts</span>
+</div>
+</div>
+<!-- Architectural/Whiteboard Drawer (Collapsed Preview) -->
+<div class="bg-surface-container-high border-t border-outline-variant/15 p-4 flex items-center justify-between">
+<div class="flex items-center gap-3">
+<div class="bg-primary/20 p-1.5 rounded">
+<span class="material-symbols-outlined text-primary text-sm">schema</span>
+</div>
+<span class="text-xs font-bold uppercase tracking-wider text-on-surface">Architectural Diagram</span>
+</div>
+<div class="flex items-center gap-4">
+<img alt="Architectural Diagram Preview" class="h-8 rounded grayscale opacity-50 border border-outline-variant/20" data-alt="Abstract structural diagram representation" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBo3rEoB71lovlfXc2nyBuUXs7ryo6ZHbdeJyEXEeXpJv_1HjjQf7TDpHM_ZPH8ktwd1NclNUTg1cYibq_hM2_XJTCpi1K_8v4HCXRxqRIhM7UbZqt8xE7ByJn21TQZ7-OuwR67m78SzPgT4_1-IQ36yf1-vORnwd3cELJMbV4FXb_aez3piKs24NIl3KcxGWBqLuHeBAysKUHFbCLWPsn1juAUw6wjR-bT3ZW97QAvLcHW7tRw5SjRMVfpJhCPshjrXLWYjcgH0ZJ_"/>
+<button class="text-outline hover:text-on-surface">
+<span class="material-symbols-outlined">expand_less</span>
+</button>
+</div>
+</div>
+</main>
+<!-- Right Pane: AI Teaching Assistant -->
+<aside class="bg-[#091328] dark:bg-[#091328] flex flex-col h-full border-l border-slate-800/30 w-80 shrink-0 shadow-[-24px_0_48px_rgba(6,14,32,0.4)] relative">
+<!-- Header -->
+<div class="p-6 border-b border-slate-800/30">
+<div class="flex items-center justify-between mb-1">
+<h3 class="text-sm font-sans font-bold text-[#ff86c3]">Teaching Assistant</h3>
+<span class="bg-[#ff86c3]/10 text-[#ff86c3] text-[9px] px-2 py-0.5 rounded-full font-mono border border-[#ff86c3]/20">GPT-4 Turbo</span>
+</div>
+<p class="text-xs text-slate-400">Context: useDataHook.ts</p>
+</div>
+<!-- Conversation Area -->
+<div class="flex-1 overflow-y-auto p-4 space-y-6">
+<!-- AI Message -->
+<div class="space-y-3">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-[#ff86c3] text-lg" style="font-variation-settings: 'FILL' 1;">psychology</span>
+<span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Scholar AI</span>
+</div>
+<div class="bg-surface-container p-4 rounded-xl rounded-tl-none border border-outline-variant/5">
+<p class="text-xs leading-relaxed text-on-surface">
+                            I see you're implementing a data hook. To make this more robust, consider adding a **cleanup function** to your `useEffect` to prevent memory leaks if the component unmounts.
+                        </p>
+<div class="mt-4 bg-surface-container-lowest p-3 rounded-lg border border-outline-variant/10 font-mono text-[10px]">
+<p class="text-outline">// Suggestion:</p>
+<p><span class="text-tertiary">return</span> () =&gt; controller.<span class="text-secondary">abort</span>();</p>
+</div>
+</div>
+</div>
+<!-- User Message -->
+<div class="space-y-3 flex flex-col items-end">
+<div class="flex items-center gap-2">
+<span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">You</span>
+<span class="material-symbols-outlined text-primary text-lg">person</span>
+</div>
+<div class="bg-primary/5 p-4 rounded-xl rounded-tr-none border border-primary/10 max-w-[90%]">
+<p class="text-xs text-on-surface">That's a good point! Can you help me integrate AbortController into the fetch call?</p>
+</div>
+</div>
+<!-- History Indicators -->
+<div class="flex justify-center py-4">
+<div class="flex items-center gap-1.5 opacity-30">
+<div class="w-1.5 h-1.5 bg-outline rounded-full"></div>
+<div class="w-1.5 h-1.5 bg-outline rounded-full"></div>
+<div class="w-1.5 h-1.5 bg-outline rounded-full"></div>
+</div>
+</div>
+</div>
+<!-- Footer Tabs -->
+<div class="p-4 border-t border-slate-800/30 space-y-4">
+<div class="flex gap-2">
+<button class="flex-1 text-[#ff86c3] font-bold border-b border-[#ff86c3]/30 py-2 text-center text-xs transition-all active:opacity-80">History</button>
+<button class="flex-1 text-slate-400 py-2 text-center text-xs hover:bg-[#1f2b49] transition-all">Saved</button>
+</div>
+<div class="relative">
+<textarea class="w-full bg-surface-container-low border border-outline-variant/20 rounded-xl px-4 py-3 text-xs text-on-surface focus:border-primary focus:ring-2 focus:ring-primary/10 outline-none resize-none transition-all" placeholder="Ask your tutor..." rows="3"></textarea>
+<button class="absolute bottom-3 right-3 p-1.5 bg-primary text-on-primary-container rounded-lg shadow-lg">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">send</span>
+</button>
+</div>
+<div class="flex items-center justify-between text-[10px] text-outline px-1">
+<div class="flex items-center gap-3">
+<button class="hover:text-on-surface flex items-center gap-1 transition-all">
+<span class="material-symbols-outlined text-sm">history</span>
+                            Recent
+                        </button>
+<button class="hover:text-on-surface flex items-center gap-1 transition-all">
+<span class="material-symbols-outlined text-sm">chat_bubble_outline</span>
+                            Feedback
+                        </button>
+</div>
+<span class="font-mono">CTRL + ENTER to send</span>
+</div>
+</div>
+</aside>
+</div>
+<!-- Mobile Bottom NavBar (Hidden on Web) -->
+<nav class="md:hidden fixed bottom-0 left-0 right-0 bg-[#091328] border-t border-slate-800/30 flex justify-around items-center py-3 z-50">
+<a class="flex flex-col items-center gap-1 text-sky-400" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">folder_copy</span>
+<span class="text-[9px] uppercase tracking-tighter font-mono">Files</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-500" href="#">
+<span class="material-symbols-outlined">menu_book</span>
+<span class="text-[9px] uppercase tracking-tighter font-mono">Learning</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-500" href="#">
+<span class="material-symbols-outlined">psychology</span>
+<span class="text-[9px] uppercase tracking-tighter font-mono">AI Tutor</span>
+</a>
+<a class="flex flex-col items-center gap-1 text-slate-500" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-[9px] uppercase tracking-tighter font-mono">Config</span>
+</a>
+</nav>
+</body></html>
