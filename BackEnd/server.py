@@ -309,9 +309,7 @@ def chat(
         content=ai_reply_content
     )
     db.add(ai_msg)
-    
-    # Touch session to update updated_at
-    session.title = session.title  # simple trigger for onupdate if needed
+    session.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(ai_msg)
 
@@ -336,4 +334,8 @@ def chat(
 
 def _example_user() -> UserOut:
     now = datetime.utcnow()
-    return UserOut(id=uuid4(), email="student@example.com", role="student", created_at=now)
+    return UserOut(id=uuid4(), email="student@example.com", role=UserRole.STUDENT, created_at=now)
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("server:app", host="127.0.0.1", port=8000, reload=True)

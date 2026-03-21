@@ -15,7 +15,7 @@ def _load_env() -> None:
     repo_root = Path(__file__).resolve().parents[1]
     dotenv_path = repo_root / ".env"
     if dotenv_path.exists():
-        load_dotenv(dotenv_path=str(dotenv_path), override=False)
+        load_dotenv(dotenv_path=str(dotenv_path), override=True)
 
 
 def get_database_url() -> str:
@@ -35,7 +35,7 @@ def get_database_url() -> str:
 
 
 _engine: Optional[Engine] = None
-SessionLocal: sessionmaker[Session] = sessionmaker(autocommit=False, autoflush=False)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False)
 
 
 def get_engine() -> Engine:
@@ -44,6 +44,7 @@ def get_engine() -> Engine:
         _engine = create_engine(
             get_database_url(),
             pool_pre_ping=True,
+            echo=False,
         )
         SessionLocal.configure(bind=_engine)
     return _engine
@@ -51,9 +52,9 @@ def get_engine() -> Engine:
 
 def get_db() -> Generator[Session, None, None]:
     """
-    FastAPI dependency (later):
-      def route(db: Session = Depends(get_db)): ...
+    FastAPI dependency for database sessions.
     """
+    get_engine()
     db = SessionLocal()
     try:
         yield db
