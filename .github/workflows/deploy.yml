@@ -11,8 +11,8 @@ on:
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: us-central1
-  SERVICE_NAME: plateit-backend
-  IMAGE_NAME: gcr.io/${{ secrets.GCP_PROJECT_ID }}/plateit-backend
+  SERVICE_NAME: teacher-agent
+  IMAGE_NAME: gcr.io/${{ secrets.GCP_PROJECT_ID }}/teacher-agent
 
 jobs:
   deploy:
