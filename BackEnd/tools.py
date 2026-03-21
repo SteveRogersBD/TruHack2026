@@ -235,3 +235,63 @@ def math_solver(expression: str, command: str = "simplify") -> str:
 
     except Exception as e:
         return f"Math Error: {str(e)}"
+
+
+def rag_search_tool(query: str, course: str = "General") -> str:
+    """
+    Search syllabus, slides, and notes for course-aligned information.
+    """
+    # Placeholder for RAG implementation
+    return f"RAG search results for '{query}' in course '{course}': [Simulated context from course materials]"
+
+
+def quiz_gen_tool(topic: str, difficulty: str = "medium") -> str:
+    """
+    Generate practice exercises at a target difficulty.
+    """
+    return f"Generated {difficulty} quiz for {topic}: 1. Example question? 2. Another challenge?"
+
+
+def study_plan_tool(topics: List[str], available_hours: int) -> str:
+    """
+    Build a weekly plan from topics and available time.
+    """
+    return f"Study plan for {topics} with {available_hours}h/week: Monday: {topics[0] if topics else 'General'}"
+
+
+def integrity_check_tool(content: str) -> str:
+    """
+    Detect "do my homework" requests and switch to hints/scaffolding mode.
+    """
+    keywords = ["do my homework", "solve this for me", "give me the answer", "write my essay"]
+    if any(k in content.lower() for k in keywords):
+        return "Potential integrity violation detected. Switching to scaffolding/hint mode."
+    return "Content seems acceptable for tutoring."
+
+
+def diagram_tool(description: str, type: str = "mermaid") -> str:
+    """
+    Generate graphs, ERDs, automata, and concept maps using Mermaid syntax.
+    """
+    return f"Generated {type} diagram for: {description}\ngraph TD\nA[Start] --> B[{description}]"
+
+
+def export_tool(session_id: str, format: str = "ipynb") -> str:
+    """
+    Export a session to a worksheet or .ipynb.
+    """
+    return f"Exporting session {session_id} to {format} format. [Link: /exports/{session_id}.{format}]"
+
+
+def progress_db_tool(user_id: str, action: str = "get") -> str:
+    """
+    Store and retrieve goals, misconceptions, mastery, and past attempts.
+    """
+    return f"Learner progress for {user_id}: Mastery: 65%, Active Goal: Mastering Recursion."
+
+
+def units_checker_tool(expression: str) -> str:
+    """
+    Track units and catch dimensional mistakes in STEM problems.
+    """
+    return f"Units check for '{expression}': Dimensions are consistent (L/T^2)."

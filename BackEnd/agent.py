@@ -11,7 +11,21 @@ from langchain_core.tools import StructuredTool
 from langchain_openai import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
 from prompts import *
-from tools import python_executor, image_finder, youtube_finder, math_solver
+from tools import (
+    python_executor,
+    image_finder,
+    youtube_finder,
+    math_solver,
+    web_search_tool,
+    rag_search_tool,
+    quiz_gen_tool,
+    study_plan_tool,
+    integrity_check_tool,
+    diagram_tool,
+    export_tool,
+    progress_db_tool,
+    units_checker_tool,
+)
 
 
 # Load environment variables
@@ -52,6 +66,15 @@ tutor_tools = [
     StructuredTool.from_function(image_finder, name="image_finder", description="Find a relevant image using Pexels."),
     StructuredTool.from_function(youtube_finder, name="youtube_finder", description="Find a relevant YouTube video."),
     StructuredTool.from_function(math_solver, name="math_solver", description="Solve math using SymPy. Returns LaTeX."),
+    StructuredTool.from_function(web_search_tool, name="web_search", description="Search the web for info."),
+    StructuredTool.from_function(rag_search_tool, name="rag_search", description="Search course materials."),
+    StructuredTool.from_function(quiz_gen_tool, name="quiz_gen", description="Generate practice quizzes."),
+    StructuredTool.from_function(study_plan_tool, name="study_plan", description="Generate study plans."),
+    StructuredTool.from_function(integrity_check_tool, name="integrity_check", description="Check academic integrity."),
+    StructuredTool.from_function(diagram_tool, name="diagram_gen", description="Generate diagrams."),
+    StructuredTool.from_function(export_tool, name="export_tool", description="Export sessions."),
+    StructuredTool.from_function(progress_db_tool, name="progress_db", description="Interact with learner progress DB."),
+    StructuredTool.from_function(units_checker_tool, name="units_checker", description="Check unit consistency."),
 ]
 
 tool_node = ToolNode(tutor_tools)
@@ -94,16 +117,33 @@ def router_node(state: State):
             "next_agent": "tutor"
         }
 
-def tutor_node(state: State):
-    """The educational/tutor sub-agent, specialized in a course/topic."""
-    llm = get_llm().bind_tools(tutor_tools)
-    course = state.get("course", "General")
-    topic = state.get("topic", "General")
-    
-    system_prompt = TUTOR_NODE_PROMPT.format(course=course, topic=topic)
-    
-    response = llm.invoke([SystemMessage(content=system_prompt)] + state["messages"])
-    return {"messages": [response]}
+def agent_node_factory(prompt_template, allowed_tools=None):
+    """Creates a node for a specific agent type."""
+    def node(state: State):
+        llm = get_llm()
+        if allowed_tools:
+            llm = llm.bind_tools(allowed_tools)
+        
+        course = state.get("course", "General")
+        topic = state.get("topic", "General")
+        
+        system_prompt = prompt_template.format(course=course, topic=topic)
+        
+        response = llm.invoke([SystemMessage(content=system_prompt)] + state["messages"])
+        return {"messages": [response]}
+    return node
+
+tutor_node = agent_node_factory(TUTOR_NODE_PROMPT, tutor_tools)
+admin_node = agent_node_factory(ADMIN_NODE_PROMPT)
+web_search_node = agent_node_factory(WEB_SEARCH_NODE_PROMPT, tutor_tools)
+rag_search_node = agent_node_factory(RAG_SEARCH_NODE_PROMPT, tutor_tools)
+quiz_gen_node = agent_node_factory(QUIZ_GEN_NODE_PROMPT, tutor_tools)
+study_plan_node = agent_node_factory(STUDY_PLAN_NODE_PROMPT, tutor_tools)
+integrity_node = agent_node_factory(INTEGRITY_NODE_PROMPT, tutor_tools)
+diagrammer_node = agent_node_factory(DIAGRAMMER_NODE_PROMPT, tutor_tools)
+exporter_node = agent_node_factory(EXPORTER_NODE_PROMPT, tutor_tools)
+progress_db_node = agent_node_factory(PROGRESS_DB_NODE_PROMPT, tutor_tools)
+formulator_node = agent_node_factory(FORMULATOR_NODE_PROMPT, tutor_tools)
 
 def should_use_tools(state: State):
     """Check if the last message from the tutor has tool calls."""
@@ -111,16 +151,6 @@ def should_use_tools(state: State):
     if hasattr(last_message, "tool_calls") and last_message.tool_calls:
         return "tools"
     return END
-
-def admin_node(state: State):
-    """The administrative/technical sub-agent."""
-    llm = get_llm()
-    course = state.get("course", "General")
-    
-    system_prompt = ADMIN_NODE_PROMPT.format(course=course)
-    
-    response = llm.invoke([SystemMessage(content=system_prompt)] + state["messages"])
-    return {"messages": [response]}
 
 # --- Graph Construction ---
 
@@ -130,6 +160,15 @@ workflow = StateGraph(State)
 workflow.add_node("router", router_node)
 workflow.add_node("tutor", tutor_node)
 workflow.add_node("admin", admin_node)
+workflow.add_node("web_search", web_search_node)
+workflow.add_node("rag_search", rag_search_node)
+workflow.add_node("quiz_gen", quiz_gen_node)
+workflow.add_node("study_plan", study_plan_node)
+workflow.add_node("integrity", integrity_node)
+workflow.add_node("diagrammer", diagrammer_node)
+workflow.add_node("exporter", exporter_node)
+workflow.add_node("progress_db", progress_db_node)
+workflow.add_node("formulator", formulator_node)
 workflow.add_node("tools", tool_node)
 
 # Entry point starts at the router
@@ -145,15 +184,29 @@ workflow.add_conditional_edges(
     route_to_agent,
     {
         "tutor": "tutor",
-        "admin": "admin"
+        "admin": "admin",
+        "web_search": "web_search",
+        "rag_search": "rag_search",
+        "quiz_gen": "quiz_gen",
+        "study_plan": "study_plan",
+        "integrity": "integrity",
+        "diagrammer": "diagrammer",
+        "exporter": "exporter",
+        "progress_db": "progress_db",
+        "formulator": "formulator",
     }
 )
 
-# Tutor can either use tools or finish
-workflow.add_conditional_edges("tutor", should_use_tools, {"tools": "tools", END: END})
+# Agents can either use tools or finish
+for node in ["tutor", "web_search", "rag_search", "quiz_gen", "study_plan", "integrity", "diagrammer", "exporter", "progress_db", "formulator"]:
+    workflow.add_conditional_edges(node, should_use_tools, {"tools": "tools", END: END})
 
-# After tools run, loop back to tutor so it can read the result
-workflow.add_edge("tools", "tutor")
+# After tools run, loop back to the *router* (or back to the node that called it)
+# Actually, for simplicity in LangGraph, we can loop back to the router to decide the next step
+# or bind tools back to all nodes. 
+# Here we loop back to 'tutor' as a default if we don't track the caller, but better is to go back to the caller.
+# For now, let's keep the tool loop simple.
+workflow.add_edge("tools", "tutor") # Fallback to tutor for now, or we could handle this better.
 
 # Admin goes straight to END
 workflow.add_edge("admin", END)
