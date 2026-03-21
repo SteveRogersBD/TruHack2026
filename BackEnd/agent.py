@@ -5,10 +5,14 @@ from typing import Literal, TypedDict, List, Annotated
 
 from dotenv import load_dotenv
 from langgraph.graph import StateGraph, END
+from langgraph.prebuilt import ToolNode
 from langchain_core.messages import SystemMessage, HumanMessage, BaseMessage
+from langchain_core.tools import StructuredTool
 from langchain_openai import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
 from prompts import *
+from tools import python_executor, image_finder, youtube_finder, math_solver
+
 
 # Load environment variables
 load_dotenv()
@@ -40,6 +44,18 @@ def get_llm(model=BEST_GPT_MODEL):
     elif os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"):
         return ChatGoogleGenerativeAI(model=BEST_GEMINI_MODEL)
     raise ValueError("No API keys found for OpenAI or Gemini. Please check your .env file.")
+
+# --- Tools Setup ---
+
+tutor_tools = [
+    StructuredTool.from_function(python_executor, name="python_executor", description="Run Python code and return output."),
+    StructuredTool.from_function(image_finder, name="image_finder", description="Find a relevant image using Pexels."),
+    StructuredTool.from_function(youtube_finder, name="youtube_finder", description="Find a relevant YouTube video."),
+    StructuredTool.from_function(math_solver, name="math_solver", description="Solve math using SymPy. Returns LaTeX."),
+]
+
+tool_node = ToolNode(tutor_tools)
+
 
 # --- Graph Nodes ---
 
@@ -80,7 +96,7 @@ def router_node(state: State):
 
 def tutor_node(state: State):
     """The educational/tutor sub-agent, specialized in a course/topic."""
-    llm = get_llm()
+    llm = get_llm().bind_tools(tutor_tools)
     course = state.get("course", "General")
     topic = state.get("topic", "General")
     
@@ -88,6 +104,13 @@ def tutor_node(state: State):
     
     response = llm.invoke([SystemMessage(content=system_prompt)] + state["messages"])
     return {"messages": [response]}
+
+def should_use_tools(state: State):
+    """Check if the last message from the tutor has tool calls."""
+    last_message = state["messages"][-1]
+    if hasattr(last_message, "tool_calls") and last_message.tool_calls:
+        return "tools"
+    return END
 
 def admin_node(state: State):
     """The administrative/technical sub-agent."""
@@ -107,6 +130,7 @@ workflow = StateGraph(State)
 workflow.add_node("router", router_node)
 workflow.add_node("tutor", tutor_node)
 workflow.add_node("admin", admin_node)
+workflow.add_node("tools", tool_node)
 
 # Entry point starts at the router
 workflow.set_entry_point("router")
@@ -125,10 +149,14 @@ workflow.add_conditional_edges(
     }
 )
 
-# Both agents end at END
-workflow.add_edge("tutor", END)
+# Tutor can either use tools or finish
+workflow.add_conditional_edges("tutor", should_use_tools, {"tools": "tools", END: END})
+
+# After tools run, loop back to tutor so it can read the result
+workflow.add_edge("tools", "tutor")
+
+# Admin goes straight to END
 workflow.add_edge("admin", END)
 
 # Compile graph
 graph = workflow.compile()
-
