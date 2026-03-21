@@ -1,162 +1,171 @@
 import os
 import operator
 import json
-from typing import Literal, TypedDict, List, Annotated
+from typing import TypedDict, List, Annotated
 
 from dotenv import load_dotenv
 from langgraph.graph import StateGraph, END
-from langgraph.prebuilt import ToolNode
-from langchain_core.messages import SystemMessage, HumanMessage, BaseMessage
-from langchain_core.tools import StructuredTool
+from langchain_core.messages import SystemMessage, BaseMessage
 from langchain_openai import ChatOpenAI
 from langchain_google_genai import ChatGoogleGenerativeAI
-from prompts import *
-from tools import python_executor, image_finder, youtube_finder, math_solver
+from prompts import ROUTER_NODE_PROMPT, TUTOR_NODE_PROMPT, ADMIN_NODE_PROMPT
 
 
 # Load environment variables
 load_dotenv()
 
-# Map the OPEN_API_KEY from .env to the standard key for LangChain
+# Map OPEN_API_KEY -> OPENAI_API_KEY for LangChain compatibility
 api_key = os.getenv("OPEN_API_KEY")
 if api_key:
     os.environ["OPENAI_API_KEY"] = api_key
 
-# Models
+# Models — NVIDIA NIM is OpenAI-compatible; swap base_url to use it
 ROUTER_MODEL = "gpt-4o-mini"
-BEST_GPT_MODEL = "gpt-5.4"
-BEST_GEMINI_MODEL = "gemini-3-flash-preview"
+BEST_MODEL = "gpt-4o"
+BEST_GEMINI_MODEL = "gemini-1.5-flash"
 
-# State Definition
+
+# ---------------------------------------------------------------------------
+# State
+# ---------------------------------------------------------------------------
+
 class State(TypedDict):
-    # operator.add ensures new messages are appended to the list rather than overwriting
     messages: Annotated[List[BaseMessage], operator.add]
     next_agent: str
-    topic: str #particular topic of a course
-    course: str #particular course of a student
+    topic: str           # specific topic within the course
+    course: str          # broad subject / course name
+    learning_goal: str   # user's stated learning objective for this session
+    current_code: str    # current code in the IDE
+    last_execution: str  # last code execution result (human-readable summary)
 
 
+# ---------------------------------------------------------------------------
+# LLM selector
+# ---------------------------------------------------------------------------
 
-def get_llm(model=BEST_GPT_MODEL):
-    """Select LLM provider based on available environment variables."""
+def get_llm(model: str = BEST_MODEL) -> ChatOpenAI | ChatGoogleGenerativeAI:
+    nvidia_key = os.getenv("NVIDIA_API_KEY")
+    if nvidia_key:
+        return ChatOpenAI(
+            model=model,
+            base_url="https://integrate.api.nvidia.com/v1",
+            api_key=nvidia_key,
+        )
     if os.getenv("OPENAI_API_KEY"):
         return ChatOpenAI(model=model)
-    elif os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"):
+    if os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"):
         return ChatGoogleGenerativeAI(model=BEST_GEMINI_MODEL)
-    raise ValueError("No API keys found for OpenAI or Gemini. Please check your .env file.")
-
-# --- Tools Setup ---
-
-tutor_tools = [
-    StructuredTool.from_function(python_executor, name="python_executor", description="Run Python code and return output."),
-    StructuredTool.from_function(image_finder, name="image_finder", description="Find a relevant image using Pexels."),
-    StructuredTool.from_function(youtube_finder, name="youtube_finder", description="Find a relevant YouTube video."),
-    StructuredTool.from_function(math_solver, name="math_solver", description="Solve math using SymPy. Returns LaTeX."),
-]
-
-tool_node = ToolNode(tutor_tools)
+    raise ValueError("No API key found. Set NVIDIA_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY.")
 
 
-# --- Graph Nodes ---
+# ---------------------------------------------------------------------------
+# Fallback structured response (used when JSON parsing fails)
+# ---------------------------------------------------------------------------
 
-def router_node(state: State):
-    """
-    Orchestrator node: Extracts course/topic and decides which sub-agent should handle the request.
-    Uses GPT-4o mini for extraction and routing.
-    """
+_TUTOR_FALLBACK = {
+    "speech": "I'm here to help! Could you tell me more about what you'd like to learn?",
+    "emotion": "idle",
+    "canvas_mode": "whiteboard",
+    "canvas_actions": [
+        {
+            "type": "diagram",
+            "content": "<svg xmlns='http://www.w3.org/2000/svg' width='400' height='100'><rect width='400' height='100' fill='#f8f9fa' rx='8'/><text x='200' y='55' text-anchor='middle' font-family='sans-serif' font-size='18' fill='#495057'>Ask me anything to get started!</text></svg>",
+            "step": 1,
+            "narration": "Ready to learn",
+        }
+    ],
+    "follow_up_suggestions": [
+        "Explain a concept to me",
+        "Help me debug my code",
+        "Give me a practice problem",
+    ],
+}
+
+
+def _parse_tutor_json(content: str) -> dict:
+    text = content.strip()
+    if "```json" in text:
+        text = text.split("```json")[1].split("```")[0].strip()
+    elif "```" in text:
+        text = text.split("```")[1].split("```")[0].strip()
+    return json.loads(text)
+
+
+# ---------------------------------------------------------------------------
+# Graph nodes
+# ---------------------------------------------------------------------------
+
+def router_node(state: State) -> dict:
+    """Classifies the query and routes to tutor or admin."""
     llm = get_llm(model=ROUTER_MODEL)
-    
-    # Prompt for extraction and routing logic
-    prompt = ROUTER_NODE_PROMPT
-    
-    # Using the last few messages for context
-    messages = [SystemMessage(content=prompt)] + state["messages"]
+    messages = [SystemMessage(content=ROUTER_NODE_PROMPT)] + state["messages"]
     response = llm.invoke(messages)
-    
+
     try:
-        # Attempt to parse JSON from the response
         content = response.content
         if "```json" in content:
             content = content.split("```json")[1].split("```")[0].strip()
         data = json.loads(content)
-        
         return {
             "course": data.get("course", "General"),
             "topic": data.get("topic", "General"),
-            "next_agent": data.get("next_agent", "tutor")
+            "next_agent": data.get("next_agent", "tutor"),
         }
     except Exception as e:
-        print(f"Error parsing orchestrator response: {e}")
-        # Default fallback
-        return {
-            "course": "General",
-            "topic": "General",
-            "next_agent": "tutor"
-        }
+        print(f"router_node: failed to parse response: {e}")
+        return {"course": "General", "topic": "General", "next_agent": "tutor"}
 
-def tutor_node(state: State):
-    """The educational/tutor sub-agent, specialized in a course/topic."""
-    llm = get_llm().bind_tools(tutor_tools)
-    course = state.get("course", "General")
-    topic = state.get("topic", "General")
-    
-    system_prompt = TUTOR_NODE_PROMPT.format(course=course, topic=topic)
-    
-    response = llm.invoke([SystemMessage(content=system_prompt)] + state["messages"])
-    return {"messages": [response]}
 
-def should_use_tools(state: State):
-    """Check if the last message from the tutor has tool calls."""
-    last_message = state["messages"][-1]
-    if hasattr(last_message, "tool_calls") and last_message.tool_calls:
-        return "tools"
-    return END
-
-def admin_node(state: State):
-    """The administrative/technical sub-agent."""
+def tutor_node(state: State) -> dict:
+    """Socratic tutor — returns structured JSON per the d.md schema."""
     llm = get_llm()
-    course = state.get("course", "General")
-    
-    system_prompt = ADMIN_NODE_PROMPT.format(course=course)
-    
+
+    system_prompt = TUTOR_NODE_PROMPT.format(
+        course=state.get("course", "General"),
+        topic=state.get("topic", "General"),
+        learning_goal=state.get("learning_goal", "Not specified"),
+        current_code=state.get("current_code", "No code yet"),
+        last_execution=state.get("last_execution", "No executions yet"),
+    )
+
+    response = llm.invoke([SystemMessage(content=system_prompt)] + state["messages"])
+
+    try:
+        structured = _parse_tutor_json(response.content)
+    except Exception as e:
+        print(f"tutor_node: failed to parse structured response: {e}")
+        structured = _TUTOR_FALLBACK
+
+    response.additional_kwargs["structured"] = structured
+    response.content = structured.get("speech", response.content)
+
+    return {"messages": [response]}
+
+
+def admin_node(state: State) -> dict:
+    """Technical support agent — free-text responses."""
+    llm = get_llm()
+    system_prompt = ADMIN_NODE_PROMPT.format(course=state.get("course", "General"))
     response = llm.invoke([SystemMessage(content=system_prompt)] + state["messages"])
     return {"messages": [response]}
 
-# --- Graph Construction ---
+
+# ---------------------------------------------------------------------------
+# Graph construction
+# ---------------------------------------------------------------------------
+
+def _route_to_agent(state: State) -> str:
+    return state["next_agent"]
+
 
 workflow = StateGraph(State)
-
-# Add nodes to the graph
 workflow.add_node("router", router_node)
 workflow.add_node("tutor", tutor_node)
 workflow.add_node("admin", admin_node)
-workflow.add_node("tools", tool_node)
 
-# Entry point starts at the router
 workflow.set_entry_point("router")
-
-# Routing logic based on state['next_agent']
-def route_to_agent(state: State):
-    return state["next_agent"]
-
-# Router chooses path to agent
-workflow.add_conditional_edges(
-    "router",
-    route_to_agent,
-    {
-        "tutor": "tutor",
-        "admin": "admin"
-    }
-)
-
-# Tutor can either use tools or finish
-workflow.add_conditional_edges("tutor", should_use_tools, {"tools": "tools", END: END})
-
-# After tools run, loop back to tutor so it can read the result
-workflow.add_edge("tools", "tutor")
-
-# Admin goes straight to END
+workflow.add_conditional_edges("router", _route_to_agent, {"tutor": "tutor", "admin": "admin"})
+workflow.add_edge("tutor", END)
 workflow.add_edge("admin", END)
 
-# Compile graph
 graph = workflow.compile()

@@ -1,8 +1,1 @@
-from typing import TypedDict, List
-
-from langchain_core.messages import BaseMessage
-
-
-class AgentState(TypedDict):
-    messages: List[BaseMessage]
-
+# Superseded by the State TypedDict in agent.py

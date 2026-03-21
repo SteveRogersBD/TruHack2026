@@ -82,6 +82,9 @@ class ChatSession(Base):
     )
 
     title: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    learning_goal: Mapped[str | None] = mapped_column(Text, nullable=True)
+    current_code: Mapped[str | None] = mapped_column(Text, nullable=True)
+    last_execution: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /c/Users/kkffz/TruHack2026/frontend -name *.json)",
+      "WebFetch(domain:build.nvidia.com)",
+      "WebFetch(domain:docs.api.nvidia.com)",
+      "WebSearch",
+      "WebFetch(domain:developer.nvidia.com)",
+      "WebFetch(domain:forums.developer.nvidia.com)",
+      "Bash(python:*)",
+      "Bash(npm run:*)",
+      "Bash(ls /c/Users/kkffz/TruHack2026/frontend/.env*)",
+      "Bash(pip install:*)",
+      "Bash(curl:*)"
+    ]
+  }
+}
