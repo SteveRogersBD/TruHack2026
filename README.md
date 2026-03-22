@@ -15,10 +15,6 @@
 - [Inspiration](#inspiration)
 - [What it does](#what-it-does)
 - [How we built it](#how-we-built-it)
-- [Challenges we ran into](#challenges-we-ran-into)
-- [Accomplishments we're proud of](#accomplishments-were-proud-of)
-- [What we learned](#what-we-learned)
-- [What's next](#whats-next)
 - [Architecture](#architecture)
 - [ER Diagram](#er-diagram)
 - [API Reference](#api-reference)
@@ -61,47 +57,7 @@ Axon is an adaptive AI learning workspace with a 3D avatar tutor that teaches th
 
 **Code Execution** — A sandboxed Python subprocess tool (`python_executor`) that runs user code and feeds results back into the agent context for inline AI feedback.
 
----
 
-## Challenges we ran into
-
-- **Reliable structured agent output** — Getting the LLM to consistently return parseable JSON (speech, emotion, canvas_actions, steps) on every response without hallucinating extra fields required careful prompt engineering, output validation, and a robust fallback path.
-- **Avatar framing** — Translating 3D world-space coordinates into a natural bust shot that looks good across different viewport sizes meant working through camera math rather than just guessing values.
-- **Layout architecture** — Four zones (avatar panel, tab bar, canvas/IDE, chat bar) coexisting without fighting for space — especially with a WebGL canvas consuming a rendering context — required careful flexbox composition and overflow management.
-- **Glassmorphism on WebGL** — `backdrop-filter` blur overlays on top of a Three.js canvas required correctly isolating the compositing layer so frosted-glass badges actually blur the 3D render behind them.
-- **LLM routing fallbacks** — Supporting three different LLM providers (OpenAI, NVIDIA NIM, Google Gemini) with a single codebase required a clean priority-based key detection system that degrades gracefully.
-
----
-
-## Accomplishments we're proud of
-
-- A fully working agentic tutor loop that produces synchronized speech + visuals + emotion in a single API call
-- A 3D avatar that visually reflects the tutor's cognitive state (speaking, thinking, encouraging, correcting) in real time
-- A polished dark-cinema UI that feels like a product, not a hackathon prototype
-- Persistent sessions — close the tab, come back, pick up exactly where you left off
-- A live step tracker that updates in the avatar sidebar as the lesson progresses
-
----
-
-## What we learned
-
-- Structured LLM output is only as reliable as the prompt contract defined upfront — schema-first thinking matters more than prompt length
-- React Three Fiber makes 3D in React surprisingly ergonomic, but camera and lighting still require 3D math intuition, not just trial and error
-- UI polish is a force multiplier: the same features feel significantly more impressive in a well-crafted shell
-- Agentic state machines (emotion → avatar → canvas → steps) need careful synchronization to avoid flicker and race conditions between UI updates
-
----
-
-## What's next
-
-- **Voice input** — Let learners speak questions naturally; the avatar responds in kind
-- **Curriculum mode** — Multi-session learning paths with spaced repetition and progress tracking
-- **Collaborative rooms** — Study with a friend; share a live canvas session in real time
-- **Custom avatars** — Let learners bring their own Ready Player Me avatar
-- **Export** — Download a session as a structured study guide (markdown + diagrams)
-- **Mobile** — Responsive layout for tablet and phone; avatar collapses to a floating pip
-
----
 
 ## Architecture
 
