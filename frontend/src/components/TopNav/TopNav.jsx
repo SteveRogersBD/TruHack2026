@@ -128,7 +128,7 @@ export default function TopNav() {
   const setMessages        = useWorkspaceStore((s) => s.setMessages)
   const setStructured      = useWorkspaceStore((s) => s.setStructured)
   const setLoading         = useWorkspaceStore((s) => s.setLoading)
-  const addMessage         = useWorkspaceStore((s) => s.addMessage)
+  const resetTransientState = useWorkspaceStore((s) => s.resetTransientState)
 
   const [showNew,     setShowNew]     = useState(false)
   const [listLoading, setListLoading] = useState(false)
@@ -143,7 +143,10 @@ export default function TopNav() {
   useEffect(() => { loadSessions() }, [loadSessions])
 
   const handleSelect = useCallback(async (session) => {
-    setLoading(true); setStructured(null)
+    resetTransientState()
+    setLoading(true)
+    setStructured(null)
+    setMessages([])
     try {
       const [sd, md] = await Promise.all([
         get(`/sessions/${session.id}`),
@@ -154,26 +157,30 @@ export default function TopNav() {
     } catch {
       setCurrentSession(session); setMessages([])
     } finally { setLoading(false) }
-  }, [setCurrentSession, setMessages, setLoading, setStructured])
+  }, [resetTransientState, setCurrentSession, setMessages, setLoading, setStructured])
 
   const handleDelete = useCallback(async (id) => {
     await del(`/sessions/${id}`)
     setSessions(sessions.filter((s) => s.id !== id))
     if (currentSession?.id === id) {
+      resetTransientState()
       setCurrentSession(null); setMessages([]); setStructured(null)
     }
-  }, [sessions, currentSession, setSessions, setCurrentSession, setMessages, setStructured])
+  }, [sessions, currentSession, resetTransientState, setSessions, setCurrentSession, setMessages, setStructured])
 
   const handleCreate = useCallback(async () => {
+    resetTransientState()
     setLoading(true)
+    setStructured(null)
+    setMessages([])
     try {
       const data = await post('/sessions', { title: 'New Chat' })
       setSessions([data, ...sessions])
-      await handleSelect(data)
+      setCurrentSession(data)
     } catch {} finally {
       setLoading(false)
     }
-  }, [sessions, setSessions, handleSelect, setLoading])
+  }, [sessions, resetTransientState, setSessions, setCurrentSession, setMessages, setStructured, setLoading])
 
   function scrollLeft()  { scrollRef.current?.scrollBy({ left: -200, behavior: 'smooth' }) }
   function scrollRight() { scrollRef.current?.scrollBy({ left:  200, behavior: 'smooth' }) }

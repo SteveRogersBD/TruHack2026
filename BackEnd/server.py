@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from agent import get_llm, graph as agent_graph
 from db import get_db
 from models import AuthSession, ChatMessage, ChatMode, ChatSession, MessageRole, User, UserRole
-from tools import python_executor, webpage_processor, youtube_processor
+from tools import image_finder, python_executor, webpage_processor, youtube_finder, youtube_processor
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 app = FastAPI(title="Tutor Agent API")
@@ -332,6 +332,115 @@ def _looks_like_math(message: str) -> bool:
     )
     symbol_markers = ("=", "^", "sqrt", "sin(", "cos(", "tan(", "log(", "lim ")
     return any(marker in lowered for marker in math_markers) or any(symbol in lowered for symbol in symbol_markers)
+
+
+def _extract_media_query(message: str, media_type: str) -> Optional[str]:
+    lowered = message.lower().strip()
+    patterns = [
+        rf"(?:find|show|get|search(?: for)?|look up)\s+(?:me\s+)?(?:an?\s+)?{media_type}\s+(?:of|for|about|on)\s+(.+)",
+        rf"(?:find|show|get|search(?: for)?|look up)\s+(.+?)\s+{media_type}",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, lowered, flags=re.IGNORECASE)
+        if match:
+            return match.group(1).strip(" ?.!,'\"")
+    return None
+
+
+def _search_media_preview(message: str) -> Optional[StructuredTutorResponse]:
+    image_query = _extract_media_query(message, "image")
+    if image_query:
+        image_url = image_finder(image_query)
+        if image_url.startswith("http"):
+            return StructuredTutorResponse(
+                speech=f"I found an image for {image_query}.",
+                emotion="explaining",
+                canvas_mode="whiteboard",
+                canvas_actions=[
+                    CanvasAction(
+                        type="image",
+                        content=image_url,
+                        language=None,
+                        step=1,
+                        narration=f"Image result for {image_query}",
+                    )
+                ],
+                follow_up_suggestions=[
+                    "Explain what is shown",
+                    "Find another image",
+                    "Summarize the topic",
+                ],
+            )
+
+    video_query = _extract_media_query(message, "video")
+    if video_query:
+        video_url = youtube_finder(video_query)
+        if video_url.startswith("http"):
+            return StructuredTutorResponse(
+                speech=f"I found a video for {video_query}.",
+                emotion="explaining",
+                canvas_mode="whiteboard",
+                canvas_actions=[
+                    CanvasAction(
+                        type="video",
+                        content=video_url,
+                        language=None,
+                        step=1,
+                        narration=f"Video result for {video_query}",
+                    )
+                ],
+                follow_up_suggestions=[
+                    "Summarize this video",
+                    "Find another video",
+                    "Explain the topic first",
+                ],
+            )
+
+    return None
+
+
+def _extract_code_from_structured(structured_data: dict | None) -> Optional[tuple[str, str]]:
+    if not structured_data:
+        return None
+    for action in structured_data.get("canvas_actions", []):
+        if action.get("type") == "code" and action.get("content"):
+            return action["content"], action.get("language") or "python"
+    return None
+
+
+def _normalize_structured_response(
+    *,
+    mode: ChatMode,
+    message: str,
+    speech: str,
+    structured_data: dict | None,
+) -> dict | None:
+    data = dict(structured_data or {})
+    data.setdefault("speech", speech)
+    data.setdefault("emotion", "explaining")
+    data.setdefault("follow_up_suggestions", [])
+    actions = list(data.get("canvas_actions") or [])
+
+    if mode == ChatMode.CODING:
+        data["canvas_mode"] = "split" if actions else "code"
+    elif mode == ChatMode.MATH:
+        data["canvas_mode"] = "whiteboard"
+    else:
+        data.setdefault("canvas_mode", "whiteboard")
+
+    normalized_actions = []
+    for idx, action in enumerate(actions, start=1):
+        if not isinstance(action, dict):
+            continue
+        item = dict(action)
+        item["step"] = int(item.get("step") or idx)
+        item["narration"] = item.get("narration") or f"Step {item['step']}"
+        normalized_actions.append(item)
+
+    data["canvas_actions"] = normalized_actions
+    return data
+
+
 
 
 def _resolve_chat_mode(
@@ -763,6 +872,12 @@ def execute_code(
         current_code=req.code,
         last_execution=last_execution_str,
     )
+    structured_data = _normalize_structured_response(
+        mode=session.mode,
+        message=exec_summary,
+        speech=content,
+        structured_data=structured_data,
+    )
 
     # Save the AI response as a message
     user_exec_msg = ChatMessage(session_id=session_id, role=MessageRole.USER, content=exec_summary)
@@ -906,9 +1021,20 @@ def chat(
     if url_to_process and resolved_mode != ChatMode.YOUTUBE:
         enhanced_message += f"\n\n[Attached Resource Context]:\nAttached webpage URL: {url_to_process}"
 
+    media_preview = _search_media_preview(req.message)
+
     user_msg = ChatMessage(session_id=session_id, role=MessageRole.USER, content=enhanced_message)
     db.add(user_msg)
     db.commit()
+
+    if media_preview:
+        ai_msg = _save_ai_message(db, session, media_preview.speech, media_preview.model_dump())
+        return ChatResponse(
+            session_id=session_id,
+            mode=resolved_mode,
+            reply=_msg_to_out(ai_msg),
+            structured=media_preview,
+        )
 
     # Build message history for the agent
     history = db.scalars(
@@ -930,6 +1056,20 @@ def chat(
         current_code=session.current_code or "No code yet",
         last_execution=last_execution_str,
     )
+    structured_data = _normalize_structured_response(
+        mode=resolved_mode,
+        message=req.message,
+        speech=content,
+        structured_data=structured_data,
+    )
+
+    extracted_code = _extract_code_from_structured(structured_data)
+    if extracted_code:
+        code_content, _language = extracted_code
+        session.current_code = code_content
+        if resolved_mode == ChatMode.CODING:
+            session.mode = ChatMode.CODING
+        db.commit()
 
     ai_msg = _save_ai_message(db, session, content, structured_data)
 

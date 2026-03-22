@@ -109,6 +109,15 @@ const useWorkspaceStore = create((set, get) => ({
   setExecuting: (value) => set({ isExecuting: value }),
 
   /**
+   * Resets transient UI flags that should not leak between sessions.
+   */
+  resetTransientState: () =>
+    set({
+      isSending: false,
+      isExecuting: false,
+    }),
+
+  /**
    * Updates a session in the sessions list by id. If it is the current session,
    * also updates currentSession.
    * @param {Session} updatedSession
@@ -138,6 +147,23 @@ const useWorkspaceStore = create((set, get) => ({
       const currentSession =
         state.currentSession?.id === sessionId
           ? { ...state.currentSession, mode }
+          : state.currentSession;
+      return { sessions, currentSession };
+    }),
+
+  /**
+   * Updates the current session/list code by session id.
+   * @param {string} sessionId
+   * @param {string} currentCode
+   */
+  setSessionCode: (sessionId, currentCode) =>
+    set((state) => {
+      const sessions = state.sessions.map((session) =>
+        session.id === sessionId ? { ...session, current_code: currentCode } : session
+      );
+      const currentSession =
+        state.currentSession?.id === sessionId
+          ? { ...state.currentSession, current_code: currentCode }
           : state.currentSession;
       return { sessions, currentSession };
     }),

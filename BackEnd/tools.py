@@ -7,6 +7,7 @@ import re
 import subprocess
 import tempfile
 from html import unescape
+from urllib.parse import quote_plus
 
 logger = logging.getLogger("scholar.youtube")
 
@@ -37,40 +38,74 @@ def python_executor(code: str) -> str:
 
 
 def image_finder(query: str) -> str:
-    """Find a relevant image via the Pexels API. Returns image URL."""
+    """Find a relevant image URL with API-key and no-key fallbacks."""
     api_key = os.getenv("PEXELS_API_KEY")
-    if not api_key:
-        return "Image search failed: No Pexels API key found."
     import requests
+    if api_key:
+        try:
+            resp = requests.get(
+                f"https://api.pexels.com/v1/search?query={quote_plus(query)}&per_page=1",
+                headers={"Authorization": api_key},
+                timeout=10,
+            )
+            data = resp.json()
+            if data.get("photos"):
+                return data["photos"][0]["src"]["large"]
+        except Exception as e:
+            logger.warning("image_finder.pexels_failed query=%s error=%s", query, e)
+
     try:
-        resp = requests.get(
-            f"https://api.pexels.com/v1/search?query={query}&per_page=1",
-            headers={"Authorization": api_key},
+        search_resp = requests.get(
+            "https://commons.wikimedia.org/w/api.php",
+            params={
+                "action": "query",
+                "format": "json",
+                "generator": "search",
+                "gsrsearch": query,
+                "gsrnamespace": 6,
+                "gsrlimit": 1,
+                "prop": "imageinfo",
+                "iiprop": "url",
+            },
             timeout=10,
         )
-        data = resp.json()
-        if data.get("photos"):
-            return data["photos"][0]["src"]["large"]
+        data = search_resp.json()
+        pages = data.get("query", {}).get("pages", {})
+        for page in pages.values():
+            imageinfo = page.get("imageinfo") or []
+            if imageinfo and imageinfo[0].get("url"):
+                return imageinfo[0]["url"]
         return f"No images found for: {query}"
     except Exception as e:
         return f"Image search error: {str(e)}"
 
 
 def youtube_finder(query: str) -> str:
-    """Find a relevant YouTube video. Returns watch URL."""
+    """Find a relevant YouTube video URL with API-key and no-key fallbacks."""
     api_key = os.getenv("YT_API_KEY")
-    if not api_key:
-        return "YouTube search failed: No YouTube API key found."
     import requests
+    if api_key:
+        try:
+            resp = requests.get(
+                f"https://www.googleapis.com/youtube/v3/search?part=snippet&q={quote_plus(query)}&key={api_key}&type=video&maxResults=1",
+                timeout=10,
+            )
+            data = resp.json()
+            if data.get("items"):
+                video_id = data["items"][0]["id"]["videoId"]
+                return f"https://www.youtube.com/watch?v={video_id}"
+        except Exception as e:
+            logger.warning("youtube_finder.api_failed query=%s error=%s", query, e)
+
     try:
-        resp = requests.get(
-            f"https://www.googleapis.com/youtube/v3/search?part=snippet&q={query}&key={api_key}&type=video&maxResults=1",
-            timeout=10,
-        )
-        data = resp.json()
-        if data.get("items"):
-            video_id = data["items"][0]["id"]["videoId"]
-            return f"https://www.youtube.com/watch?v={video_id}"
+        import yt_dlp
+
+        with yt_dlp.YoutubeDL({"quiet": True, "skip_download": True, "no_warnings": True}) as ydl:
+            info = ydl.extract_info(f"ytsearch1:{query}", download=False)
+            entries = info.get("entries") or []
+            if entries:
+                match = entries[0]
+                return match.get("webpage_url") or f"https://www.youtube.com/watch?v={match.get('id', '')}"
         return f"No videos found for: {query}"
     except Exception as e:
         return f"YouTube search error: {str(e)}"

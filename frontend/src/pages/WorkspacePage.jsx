@@ -431,6 +431,7 @@ export default function WorkspacePage() {
   const setStructured       = useWorkspaceStore((s) => s.setStructured)
   const updateSessionInList = useWorkspaceStore((s) => s.updateSessionInList)
   const setSessionMode      = useWorkspaceStore((s) => s.setSessionMode)
+  const setSessionCode      = useWorkspaceStore((s) => s.setSessionCode)
   const setLoading          = useWorkspaceStore((s) => s.setLoading)
 
   const [activeTab,        setActiveTab]        = useState('canvas')
@@ -452,12 +453,26 @@ export default function WorkspacePage() {
     state: i < canvasStep ? 'completed' : i === canvasStep ? 'active' : 'upcoming',
   }))
 
-  const handleNewStructured = useCallback((s) => {
+  const handleNewStructured = useCallback((s, sessionIdOverride) => {
     setStructured(s)
     setCanvasStep(0)
     setAutoPlay(true)
+    if (s?.canvas_mode === 'split') {
+      setIsSplit(true)
+      setActiveTab('canvas')
+    } else if (s?.canvas_mode === 'code') {
+      setIsSplit(false)
+      setActiveTab('ide')
+    } else {
+      setActiveTab('canvas')
+    }
+    const codeAction = s?.canvas_actions?.find((action) => action?.type === 'code' && action?.content)
+    const targetSessionId = sessionIdOverride || currentSession?.id
+    if (codeAction && targetSessionId) {
+      setSessionCode(targetSessionId, codeAction.content)
+    }
     if (s?.speech && !isMuted) speak(s.speech)
-  }, [setStructured, speak, isMuted])
+  }, [setStructured, speak, isMuted, currentSession, setSessionCode])
 
   const handleExecute = useCallback(async (code, language) => {
     if (!currentSession?.id || isExecuting) return
@@ -466,15 +481,16 @@ export default function WorkspacePage() {
     try {
       const data = await post(`/sessions/${currentSession.id}/execute`, { code, language })
       setSessionMode(currentSession.id, data.mode)
+      setSessionCode(currentSession.id, code)
       setExecutionResult(data.execution)
       if (data.reply)      addMessage(data.reply)
-      if (data.structured) handleNewStructured(data.structured)
+      if (data.structured) handleNewStructured(data.structured, currentSession.id)
     } catch (err) {
       setExecutionResult({ output: '', error: err.message, success: false, execution_time_ms: 0 })
     } finally {
       setExecuting(false)
     }
-  }, [currentSession, isExecuting, setExecuting, setSessionMode, addMessage, handleNewStructured])
+  }, [currentSession, isExecuting, setExecuting, setSessionMode, setSessionCode, addMessage, handleNewStructured])
 
   const handleTitleSave = useCallback(async (newTitle) => {
     if (!currentSession?.id) return
@@ -501,13 +517,13 @@ export default function WorkspacePage() {
           created_at: new Date().toISOString()
       })
       addMessage(reply)
-      if (s) setStructured(s)
+      if (s) handleNewStructured(s, newSession.id)
     } catch (err) {
       console.error(err)
     } finally {
       setLoading(false)
     }
-  }, [sessions, setSessions, setCurrentSession, setMessages, setStructured, setSessionMode, addMessage, setLoading])
+  }, [sessions, setSessions, setCurrentSession, setMessages, setStructured, setSessionMode, addMessage, setLoading, handleNewStructured])
 
   /* ── Content renderer ── */
   function renderContent() {
