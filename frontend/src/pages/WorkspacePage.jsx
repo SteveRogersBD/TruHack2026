@@ -17,7 +17,7 @@ import TopNav        from '../components/TopNav/TopNav.jsx'
 import AvatarSidebar from '../components/AvatarSidebar/AvatarSidebar.jsx'
 import Canvas        from '../components/Canvas/Canvas.jsx'
 import CodeEditor    from '../components/IDE/CodeEditor.jsx'
-import ChatBar       from '../components/ChatBar/ChatBar.jsx'
+import ChatSidebar   from '../components/ChatSidebar/ChatSidebar.jsx'
 import { useSpeech } from '../components/Avatar/Avatar.jsx'
 
 /* ------------------------------------------------------------------ */
@@ -593,21 +593,30 @@ export default function WorkspacePage() {
         steps={steps}
       />
 
-      {/* ── Zones 2–4: Content column ── */}
+      {/* ── Zones 2–4: Content + Chat ── */}
       <div
         style={{
           flex: 1,
           minWidth: 0,
           display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-          background: 'linear-gradient(180deg, #0f0f13 0%, #0d0d10 100%)',
           borderRadius: 14,
           boxShadow: '0 2px 24px rgba(0,0,0,0.5), inset 0 0 0 0.5px rgba(255,255,255,0.06)',
           position: 'relative',
           zIndex: 1,
+          overflow: 'hidden',
         }}
       >
+        {/* Middle Canvas / IDE */}
+        <div
+          style={{
+            flex: 1,
+            minWidth: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+            background: 'linear-gradient(180deg, #0f0f13 0%, #0d0d10 100%)',
+          }}
+        >
         {/* Zone 2: Tab bar */}
         {currentSession && (
           <>
@@ -639,9 +648,11 @@ export default function WorkspacePage() {
           )
         }
 
-        {/* Zone 4: Chat bar — always visible when session active */}
+        </div>
+
+        {/* Right Side: Chat Session */}
         {currentSession && (
-          <ChatBar
+          <ChatSidebar
             sessionId={currentSession.id}
             onNewStructured={handleNewStructured}
           />
