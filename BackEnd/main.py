@@ -28,6 +28,8 @@ def main() -> None:
     graph_state = {
         "messages": [],
         "next_agent": "tutor",
+        "mode": getattr(agent_state, "mode", "general"),
+        "resource_url": "",
         "topic": "General",
         "course": "General",
     }

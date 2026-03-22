@@ -28,6 +28,14 @@ class MessageRole(str, enum.Enum):
     TOOL = "tool"
 
 
+class ChatMode(str, enum.Enum):
+    GENERAL = "general"
+    YOUTUBE = "youtube"
+    WEBPAGE = "webpage"
+    MATH = "math"
+    CODING = "coding"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -82,6 +90,16 @@ class ChatSession(Base):
     )
 
     title: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    mode: Mapped[ChatMode] = mapped_column(
+        SAEnum(
+            ChatMode,
+            name="chat_mode",
+            values_callable=lambda enum_cls: [member.value for member in enum_cls],
+        ),
+        nullable=False,
+        default=ChatMode.GENERAL,
+        server_default=ChatMode.GENERAL.value,
+    )
     learning_goal: Mapped[str | None] = mapped_column(Text, nullable=True)
     current_code: Mapped[str | None] = mapped_column(Text, nullable=True)
     last_execution: Mapped[dict | None] = mapped_column(JSONB, nullable=True)

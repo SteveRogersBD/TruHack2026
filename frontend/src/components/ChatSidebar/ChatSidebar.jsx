@@ -2,9 +2,11 @@
  * ChatSidebar — Always visible right panel for conversation history and input.
  */
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Send, ThumbsUp, ThumbsDown, Sparkles } from 'lucide-react'
+import { Send, ThumbsUp, ThumbsDown, Sparkles, Globe, X, Paperclip } from 'lucide-react'
 import { post } from '../../api/client.js'
 import useWorkspaceStore from '../../store/useWorkspaceStore.js'
+import { formatModeLabel, inferChatMode, isYoutubeUrl, normalizeUrl } from '../../utils/chatMode.js'
+import { buildResourcePreviewStructured } from '../../utils/resourcePreview.js'
 
 /* ── Thinking dots ──────────────────────────────────────────────── */
 function ThinkingDots() {
@@ -171,11 +173,14 @@ export default function ChatSidebar({ sessionId, onNewStructured }) {
   const messages      = useWorkspaceStore((s) => s.messages)
   const isSending     = useWorkspaceStore((s) => s.isSending)
   const structured    = useWorkspaceStore((s) => s.structured)
+  const currentSession = useWorkspaceStore((s) => s.currentSession)
   const addMessage    = useWorkspaceStore((s) => s.addMessage)
   const setSending    = useWorkspaceStore((s) => s.setSending)
   const setStructured = useWorkspaceStore((s) => s.setStructured)
+  const setSessionMode = useWorkspaceStore((s) => s.setSessionMode)
 
   const [input, setInput] = useState('')
+  const [attachedUrl, setAttachedUrl] = useState('')
   const bottomRef = useRef(null)
 
   // Auto-scroll on new message
@@ -183,22 +188,57 @@ export default function ChatSidebar({ sessionId, onNewStructured }) {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, isSending])
 
+  const handleAttachUrl = useCallback(() => {
+    const url = normalizeUrl(prompt("Paste your YouTube or Web URL:") || '')
+    if (!url) return
+    setAttachedUrl(url)
+    const preview = buildResourcePreviewStructured(url)
+    if (preview) {
+      setStructured(preview)
+      onNewStructured?.(preview)
+    }
+  }, [setStructured, onNewStructured])
+
   const sendMessage = useCallback(async (text) => {
-    const trimmed = text.trim()
-    if (!trimmed || !sessionId || isSending) return
+    let trimmed = text.trim()
+    const normalizedAttachedUrl = normalizeUrl(attachedUrl)
+    const activeSessionId = sessionId
+    if (!trimmed && normalizedAttachedUrl) {
+      trimmed = "Can you help me with this attached link?"
+    }
+    if (!trimmed || !activeSessionId || isSending) return
+    const outboundMessage = normalizedAttachedUrl
+      ? `${trimmed}\n\nAttached URL: ${normalizedAttachedUrl}`
+      : trimmed
+    const mode = inferChatMode({
+      text: trimmed,
+      attachedUrl: normalizedAttachedUrl,
+      currentMode: currentSession?.mode,
+      currentCode: currentSession?.current_code,
+    })
     addMessage({
       id: crypto.randomUUID(),
-      session_id: sessionId,
+      session_id: activeSessionId,
       role: 'user',
-      content: trimmed,
+      content: outboundMessage,
       meta: {},
       created_at: new Date().toISOString(),
     })
     setInput('')
     setSending(true)
     try {
-      const data = await post(`/sessions/${sessionId}/chat`, { message: trimmed })
+      const endpoint = normalizedAttachedUrl
+        ? (isYoutubeUrl(normalizedAttachedUrl)
+            ? `/sessions/${activeSessionId}/youtube/analyze`
+            : `/sessions/${activeSessionId}/webpage/analyze`)
+        : `/sessions/${activeSessionId}/chat`
+      const payload = normalizedAttachedUrl
+        ? { message: trimmed, url: normalizedAttachedUrl }
+        : { message: outboundMessage, url: undefined, mode }
+      const data = await post(endpoint, payload)
+      setSessionMode(activeSessionId, data.mode)
       addMessage(data.reply)
+      setAttachedUrl('') // clear after send
       if (data.structured) {
         setStructured(data.structured)
         onNewStructured?.(data.structured)
@@ -215,10 +255,10 @@ export default function ChatSidebar({ sessionId, onNewStructured }) {
     } finally {
       setSending(false)
     }
-  }, [sessionId, isSending, addMessage, setSending, setStructured, onNewStructured])
+  }, [sessionId, isSending, attachedUrl, currentSession, addMessage, setSending, setStructured, setSessionMode, onNewStructured])
 
   const suggestions = structured?.follow_up_suggestions ?? []
-  const canSend     = input.trim().length > 0 && !isSending
+  const canSend     = (input.trim().length > 0 || attachedUrl) && !isSending
 
   return (
     <div
@@ -246,6 +286,19 @@ export default function ChatSidebar({ sessionId, onNewStructured }) {
         <span style={{ fontSize: 13, fontWeight: 500, color: '#EDEDEF' }}>
           Chat Session
         </span>
+        <span
+          style={{
+            marginLeft: 'auto',
+            fontSize: 11,
+            padding: '2px 8px',
+            borderRadius: 999,
+            background: 'rgba(94,106,210,0.14)',
+            border: '0.5px solid rgba(94,106,210,0.3)',
+            color: '#A5AFFF',
+          }}
+        >
+          {formatModeLabel(currentSession?.mode || 'general')}
+        </span>
       </div>
 
       {/* ── Chat History ── */}
@@ -270,8 +323,37 @@ export default function ChatSidebar({ sessionId, onNewStructured }) {
           padding: '12px 16px',
           borderTop: '0.5px solid rgba(255,255,255,0.06)',
           background: '#0a0a0d',
+          position: 'relative'
         }}
       >
+        {/* Attached URL Preview */}
+        {attachedUrl && (
+          <div
+            style={{
+              marginBottom: 10,
+              padding: '6px 12px',
+              background: 'rgba(94,106,210,0.1)',
+              border: '0.5px solid rgba(94,106,210,0.2)',
+              borderRadius: 8,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'between',
+              gap: 8,
+            }}
+          >
+            <Globe size={12} color="#5E6AD2" />
+            <span style={{ fontSize: 11, color: '#5E6AD2', flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {attachedUrl}
+            </span>
+            <button 
+              onClick={() => setAttachedUrl('')}
+              style={{ background: 'transparent', border: 'none', color: '#5E6AD2', cursor: 'pointer', padding: 2 }}
+            >
+              <X size={12} />
+            </button>
+          </div>
+        )}
+
         {/* Suggestion chips */}
         {suggestions.length > 0 && (
           <div
@@ -350,6 +432,26 @@ export default function ChatSidebar({ sessionId, onNewStructured }) {
             onFocus={(e)  => { e.currentTarget.style.borderColor = 'rgba(94,106,210,0.6)' }}
             onBlur={(e)   => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)' }}
           />
+
+          <button
+            type="button"
+            onClick={handleAttachUrl}
+            title="Attach URL"
+            style={{
+              height: 42,
+              width: 32,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'transparent',
+              border: 'none',
+              color: attachedUrl ? '#5E6AD2' : '#555555',
+              cursor: 'pointer',
+              transition: 'color 150ms ease',
+            }}
+          >
+            <Paperclip size={16} />
+          </button>
 
           <button
             type="button"

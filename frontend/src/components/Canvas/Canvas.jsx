@@ -4,6 +4,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import mermaid from 'mermaid';
 
 /* ------------------------------------------------------------------ */
 /* KaTeX — we attempt a dynamic import; fall back to raw text if it fails */
@@ -46,7 +47,7 @@ function LangBadge({ lang }) {
 /** Renders a code block */
 function CodeStep({ content, language }) {
   return (
-    <div className="w-full h-full flex flex-col overflow-hidden rounded-xl">
+    <div className="w-full flex flex-col overflow-hidden rounded-xl border border-white/5 shadow-sm" style={{ maxHeight: '600px' }}>
       <div
         className="flex items-center justify-between px-4 py-2 flex-shrink-0"
         style={{
@@ -81,9 +82,46 @@ function CodeStep({ content, language }) {
 function SvgStep({ content }) {
   return (
     <div
-      className="w-full h-full flex items-center justify-center p-4 overflow-auto"
+      className="w-full min-h-[200px] flex items-center justify-center p-4 overflow-auto rounded-xl bg-black/20 border border-white/5"
       // eslint-disable-next-line react/no-danger
       dangerouslySetInnerHTML={{ __html: content }}
+      style={{ color: '#dee5ff' }}
+    />
+  );
+}
+
+/** Renders a Mermaid.js diagram */
+function MermaidStep({ content }) {
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    if (containerRef.current) {
+      mermaid.initialize({ startOnLoad: false, theme: 'dark', securityLevel: 'loose' });
+      // clean up backticks from LLM response if present
+      let rawContent = content.trim();
+      if (rawContent.startsWith('```mermaid')) {
+        rawContent = rawContent.replace(/^```mermaid\n/, '').replace(/```$/, '').trim();
+      }
+      
+      const id = `mermaid-${Math.random().toString(36).substr(2, 9)}`;
+      try {
+        mermaid.render(id, rawContent)
+          .then(({ svg }) => {
+            if (containerRef.current) containerRef.current.innerHTML = svg;
+          })
+          .catch((err) => {
+            if (containerRef.current) containerRef.current.innerHTML = `<pre class="text-xs text-red-400 p-4 font-mono">${err.message}</pre>`;
+          });
+      } catch (err) {
+         if (containerRef.current) containerRef.current.innerHTML = `<pre class="text-xs text-red-400 p-4 font-mono">${err.message}</pre>`;
+      }
+    }
+  }, [content]);
+
+  return (
+    <div
+      ref={containerRef}
+      className="w-full min-h-[250px] flex items-center justify-center p-4 overflow-auto rounded-xl bg-black/20 border border-white/5"
       style={{ color: '#dee5ff' }}
     />
   );
@@ -118,7 +156,7 @@ function EquationStep({ content }) {
 
   if (fallback) {
     return (
-      <div className="w-full h-full flex items-center justify-center p-6 text-center">
+      <div className="w-full min-h-[150px] flex items-center justify-center p-6 text-center rounded-xl bg-black/20 border border-white/5">
         <pre
           className="text-lg text-on-background font-mono"
           style={{ fontFamily: "'JetBrains Mono', monospace" }}
@@ -132,7 +170,7 @@ function EquationStep({ content }) {
   return (
     <div
       ref={ref}
-      className="w-full h-full flex items-center justify-center p-6 text-on-background text-2xl"
+      className="w-full min-h-[150px] flex items-center justify-center p-6 text-on-background text-2xl rounded-xl bg-black/20 border border-white/5"
       style={{ overflowX: 'auto' }}
     />
   );
@@ -145,9 +183,59 @@ function IframeStep({ content }) {
       sandbox="allow-scripts"
       srcDoc={content}
       title="Canvas step"
-      className="w-full h-full border-0 rounded-xl"
-      style={{ background: '#060e20', minHeight: '200px' }}
+      className="w-full border-0 rounded-xl shadow-sm"
+      style={{ background: '#060e20', minHeight: '400px' }}
     />
+  );
+}
+
+/** Renders an image from a URL */
+function ImageStep({ content }) {
+  return (
+    <div className="w-full min-h-[300px] flex items-center justify-center p-4 overflow-hidden rounded-xl bg-black/20 border border-white/5">
+      <img 
+        src={content} 
+        alt="Canvas visual" 
+        className="max-w-full max-h-full object-contain rounded-lg shadow-lg border border-white/10"
+      />
+    </div>
+  );
+}
+
+/** Renders a video from a URL (handles YouTube embedding) */
+function VideoStep({ content }) {
+  let embedUrl = content;
+  if (content.includes('youtube.com/watch?v=')) {
+    const videoId = content.split('v=')[1]?.split('&')[0];
+    if (videoId) embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+  } else if (content.includes('youtu.be/')) {
+    const videoId = content.split('youtu.be/')[1]?.split('?')[0];
+    if (videoId) embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1`;
+  }
+
+  if (embedUrl.includes('youtube.com/embed')) {
+    return (
+      <div className="w-full min-h-[300px] flex items-center justify-center p-4 overflow-hidden rounded-xl bg-black/20 border border-white/5">
+         <iframe 
+           src={embedUrl} 
+           title="YouTube Video" 
+           style={{ minHeight: '400px' }}
+           className="w-full border-0 rounded-lg shadow-lg max-w-4xl"
+           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+           allowFullScreen 
+         />
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full min-h-[300px] flex items-center justify-center p-4 overflow-hidden rounded-xl bg-black/20 border border-white/5">
+      <video 
+        src={content} 
+        controls 
+        className="max-w-full max-h-full rounded-lg shadow-lg border border-white/10"
+      />
+    </div>
   );
 }
 
@@ -158,6 +246,7 @@ function StepRenderer({ action }) {
     case 'code':
       return <CodeStep content={content} language={language} />;
     case 'diagram':
+      return <MermaidStep content={content} />;
     case 'draw':
       return <SvgStep content={content} />;
     case 'equation':
@@ -165,6 +254,10 @@ function StepRenderer({ action }) {
     case 'animation':
     case 'chart':
       return <IframeStep content={content} />;
+    case 'image':
+      return <ImageStep content={content} />;
+    case 'video':
+      return <VideoStep content={content} />;
     default:
       return (
         <div className="w-full h-full flex items-center justify-center p-6 text-on-surface-variant text-sm">
@@ -257,32 +350,8 @@ function EmptyState() {
  */
 export default function Canvas({
   actions = [],
-  currentStep = 0,
-  onStepChange,
-  autoPlay = false,
 }) {
   const total = actions.length;
-  const canPrev = currentStep > 0;
-  const canNext = currentStep < total - 1;
-
-  const handlePrev = useCallback(() => {
-    if (canPrev) onStepChange(currentStep - 1);
-  }, [canPrev, currentStep, onStepChange]);
-
-  const handleNext = useCallback(() => {
-    if (canNext) onStepChange(currentStep + 1);
-  }, [canNext, currentStep, onStepChange]);
-
-  // Auto-advance every 4s when autoPlay is true
-  useEffect(() => {
-    if (!autoPlay || total === 0) return;
-    const timer = setTimeout(() => {
-      if (canNext) {
-        onStepChange(currentStep + 1);
-      }
-    }, 4000);
-    return () => clearTimeout(timer);
-  }, [autoPlay, canNext, currentStep, total, onStepChange]);
 
   if (total === 0) {
     return (
@@ -298,9 +367,6 @@ export default function Canvas({
     );
   }
 
-  const currentAction = actions[currentStep];
-  const narration = currentAction?.narration;
-
   return (
     <div
       className="flex flex-col h-full rounded-xl overflow-hidden"
@@ -309,101 +375,31 @@ export default function Canvas({
         border: '1px solid rgba(64,72,93,0.5)',
       }}
     >
-      {/* Step pills header */}
-      <div
-        className="flex items-center gap-2 px-4 py-2.5 overflow-x-auto flex-shrink-0"
-        style={{ borderBottom: '1px solid rgba(64,72,93,0.4)' }}
-      >
-        <span className="icon text-sm text-on-surface-variant flex-shrink-0">
-          layers
-        </span>
-        <div className="flex items-center gap-1.5">
-          {actions.map((action, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => onStepChange(idx)}
-              className={
-                'flex-shrink-0 px-2.5 py-1 rounded-full text-xs font-medium transition-all duration-200 ' +
-                (idx === currentStep
-                  ? 'text-white'
-                  : idx < currentStep
-                  ? 'text-on-surface-variant hover:text-on-background'
-                  : 'text-on-surface-variant/50 hover:text-on-surface-variant')
-              }
-              style={
-                idx === currentStep
-                  ? {
-                      background: 'linear-gradient(135deg, #3bbffa, #8a95ff)',
-                    }
-                  : idx < currentStep
-                  ? {
-                      background: 'rgba(59,191,250,0.12)',
-                      border: '1px solid rgba(59,191,250,0.2)',
-                    }
-                  : {
-                      background: 'rgba(64,72,93,0.2)',
-                      border: '1px solid rgba(64,72,93,0.3)',
-                    }
-              }
-              title={action.narration || `Step ${idx + 1}`}
-            >
-              {action.type || `Step ${idx + 1}`}
-            </button>
-          ))}
-        </div>
+      {/* Main scrollable feed area */}
+      <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-10 scroll-smooth will-change-scroll">
+        {actions.map((action, idx) => (
+          <div key={idx} id={`canvas-step-${idx}`} className="flex flex-col gap-4">
+            
+            <div className="flex items-start gap-3">
+              <div 
+                className="flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mt-0.5"
+                style={{ background: 'rgba(94,106,210,0.15)', color: '#A5AFFF', border: '1px solid rgba(94,106,210,0.3)' }}
+              >
+                {idx + 1}
+              </div>
+              <div className="text-sm font-medium leading-relaxed" style={{ color: '#EDEDEF', paddingTop: '2px' }}>
+                {action.narration || `${action.type.charAt(0).toUpperCase() + action.type.slice(1)} Block`}
+              </div>
+            </div>
 
-        <div className="ml-auto flex-shrink-0 text-xs text-on-surface-variant font-mono">
-          {currentStep + 1}/{total}
-        </div>
-      </div>
+            <div className="pl-9 w-full">
+              <StepRenderer action={action} />
+            </div>
 
-      {/* Main content area */}
-      <div className="flex-1 overflow-hidden p-4">
-        <StepRenderer action={currentAction} />
-      </div>
-
-      {/* Narration + nav footer */}
-      <div
-        className="flex-shrink-0 px-4 py-3 flex items-center gap-3"
-        style={{ borderTop: '1px solid rgba(64,72,93,0.4)' }}
-      >
-        {/* Prev / Next */}
-        <button
-          type="button"
-          onClick={handlePrev}
-          disabled={!canPrev}
-          className="flex-shrink-0 p-1.5 rounded-lg transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-surface-container-high text-on-surface-variant hover:text-on-background"
-          aria-label="Previous step"
-        >
-          <span className="icon text-xl leading-none">arrow_back</span>
-        </button>
-
-        {/* Narration text */}
-        <div className="flex-1 min-w-0">
-          {narration ? (
-            <p className="text-sm text-on-surface-variant truncate" title={narration}>
-              <span className="icon text-sm mr-1 text-primary align-middle">
-                record_voice_over
-              </span>
-              {narration}
-            </p>
-          ) : (
-            <p className="text-sm text-on-surface-variant/40 italic">
-              Step {currentStep + 1} of {total}
-            </p>
-          )}
-        </div>
-
-        <button
-          type="button"
-          onClick={handleNext}
-          disabled={!canNext}
-          className="flex-shrink-0 p-1.5 rounded-lg transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-surface-container-high text-on-surface-variant hover:text-on-background"
-          aria-label="Next step"
-        >
-          <span className="icon text-xl leading-none">arrow_forward</span>
-        </button>
+          </div>
+        ))}
+        {/* Extra padding at bottom so the last item can scroll comfortably */}
+        <div style={{ height: '30vh' }} className="flex-shrink-0" aria-hidden="true" />
       </div>
     </div>
   );

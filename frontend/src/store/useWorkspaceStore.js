@@ -11,6 +11,7 @@ import { create } from 'zustand';
  * @property {string} id
  * @property {string} user_id
  * @property {string} title
+ * @property {'general'|'youtube'|'webpage'|'math'|'coding'} mode
  * @property {string} learning_goal
  * @property {string} current_code
  * @property {string} created_at
@@ -120,6 +121,23 @@ const useWorkspaceStore = create((set, get) => ({
       const currentSession =
         state.currentSession?.id === updatedSession.id
           ? updatedSession
+          : state.currentSession;
+      return { sessions, currentSession };
+    }),
+
+  /**
+   * Updates the current session/list mode by session id.
+   * @param {string} sessionId
+   * @param {'general'|'youtube'|'webpage'|'math'|'coding'} mode
+   */
+  setSessionMode: (sessionId, mode) =>
+    set((state) => {
+      const sessions = state.sessions.map((session) =>
+        session.id === sessionId ? { ...session, mode } : session
+      );
+      const currentSession =
+        state.currentSession?.id === sessionId
+          ? { ...state.currentSession, mode }
           : state.currentSession;
       return { sessions, currentSession };
     }),

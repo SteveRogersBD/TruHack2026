@@ -197,6 +197,7 @@ export default function Sidebar() {
   const setStructured = useWorkspaceStore((s) => s.setStructured);
   const setLoading = useWorkspaceStore((s) => s.setLoading);
   const addMessage = useWorkspaceStore((s) => s.addMessage);
+  const setSessionMode = useWorkspaceStore((s) => s.setSessionMode);
 
   const [showNewForm, setShowNewForm] = useState(false);
   const [listLoading, setListLoading] = useState(false);
@@ -267,12 +268,13 @@ export default function Sidebar() {
       // Send initial learning-goal message
       if (newSession.learning_goal) {
         try {
-          const { reply, structured } = await post(
+          const { reply, structured, mode } = await post(
             `/sessions/${newSession.id}/chat`,
             {
               message: `My learning goal is: ${newSession.learning_goal}. I'm ready to start!`,
             }
           );
+          setSessionMode(newSession.id, mode);
           addMessage({
             id: reply.id || crypto.randomUUID(),
             session_id: newSession.id,
@@ -290,7 +292,7 @@ export default function Sidebar() {
         }
       }
     },
-    [sessions, setSessions, handleSelectSession, addMessage, setStructured]
+    [sessions, setSessions, handleSelectSession, addMessage, setStructured, setSessionMode]
   );
 
   return (

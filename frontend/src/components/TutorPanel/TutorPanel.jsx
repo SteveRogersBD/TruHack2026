@@ -11,6 +11,9 @@ import {
 } from 'react';
 import { post } from '../../api/client.js';
 import useWorkspaceStore from '../../store/useWorkspaceStore.js';
+import { Globe, X, Paperclip } from 'lucide-react';
+import { formatModeLabel, inferChatMode, isYoutubeUrl, normalizeUrl } from '../../utils/chatMode.js';
+import { buildResourcePreviewStructured } from '../../utils/resourcePreview.js';
 
 /* ------------------------------------------------------------------ */
 /* Thinking indicator                                                    */
@@ -89,9 +92,8 @@ function MessageBubble({ message }) {
 
   return (
     <div
-      className={`flex items-end gap-2 px-4 py-1 transition-all duration-150 ${
-        isUser ? 'flex-row-reverse' : 'flex-row'
-      }`}
+      className={`flex items-end gap-2 px-4 py-1 transition-all duration-150 ${isUser ? 'flex-row-reverse' : 'flex-row'
+        }`}
       onMouseEnter={() => setShowTime(true)}
       onMouseLeave={() => setShowTime(false)}
     >
@@ -112,20 +114,19 @@ function MessageBubble({ message }) {
 
       <div className={`flex flex-col gap-0.5 max-w-[75%] ${isUser ? 'items-end' : 'items-start'}`}>
         <div
-          className={`px-3.5 py-2.5 text-sm leading-relaxed ${
-            isUser
+          className={`px-3.5 py-2.5 text-sm leading-relaxed ${isUser
               ? 'rounded-2xl rounded-br-sm text-white'
               : 'rounded-2xl rounded-bl-sm text-on-background'
-          }`}
+            }`}
           style={
             isUser
               ? {
-                  background: 'linear-gradient(135deg, #3bbffa, #8a95ff)',
-                }
+                background: 'linear-gradient(135deg, #3bbffa, #8a95ff)',
+              }
               : {
-                  background: '#141f38',
-                  border: '1px solid rgba(64,72,93,0.4)',
-                }
+                background: '#141f38',
+                border: '1px solid rgba(64,72,93,0.4)',
+              }
           }
         >
           {displayContent}
@@ -133,9 +134,8 @@ function MessageBubble({ message }) {
 
         {/* Timestamp on hover */}
         <span
-          className={`text-xs text-on-surface-variant/60 transition-opacity duration-150 ${
-            showTime ? 'opacity-100' : 'opacity-0'
-          }`}
+          className={`text-xs text-on-surface-variant/60 transition-opacity duration-150 ${showTime ? 'opacity-100' : 'opacity-0'
+            }`}
         >
           {formatTime(message.created_at)}
         </span>
@@ -191,11 +191,14 @@ export default function TutorPanel({ sessionId, onNewStructured }) {
   const messages = useWorkspaceStore((s) => s.messages);
   const isSending = useWorkspaceStore((s) => s.isSending);
   const structured = useWorkspaceStore((s) => s.structured);
+  const currentSession = useWorkspaceStore((s) => s.currentSession);
   const addMessage = useWorkspaceStore((s) => s.addMessage);
   const setSending = useWorkspaceStore((s) => s.setSending);
   const setStructured = useWorkspaceStore((s) => s.setStructured);
+  const setSessionMode = useWorkspaceStore((s) => s.setSessionMode);
 
   const [input, setInput] = useState('');
+  const [attachedUrl, setAttachedUrl] = useState('');
   const bottomRef = useRef(null);
   const textareaRef = useRef(null);
 
@@ -214,17 +217,42 @@ export default function TutorPanel({ sessionId, onNewStructured }) {
     el.style.height = `${Math.min(el.scrollHeight, maxHeight)}px`;
   }, [input]);
 
+  const handleAttachUrl = useCallback(() => {
+    const url = normalizeUrl(prompt("Paste your YouTube or Web URL:") || '');
+    if (!url) return;
+    setAttachedUrl(url);
+    const preview = buildResourcePreviewStructured(url);
+    if (preview) {
+      setStructured(preview);
+      if (onNewStructured) onNewStructured(preview);
+    }
+  }, [setStructured, onNewStructured]);
+
   const sendMessage = useCallback(
     async (text) => {
-      const trimmed = text.trim();
-      if (!trimmed || !sessionId || isSending) return;
+      let trimmed = text.trim();
+      const normalizedAttachedUrl = normalizeUrl(attachedUrl);
+      const activeSessionId = sessionId;
+      if (!trimmed && normalizedAttachedUrl) {
+        trimmed = "Can you help me with this attached link?";
+      }
+      if (!trimmed || !activeSessionId || isSending) return;
+      const outboundMessage = normalizedAttachedUrl
+        ? `${trimmed}\n\nAttached URL: ${normalizedAttachedUrl}`
+        : trimmed;
+      const mode = inferChatMode({
+        text: trimmed,
+        attachedUrl: normalizedAttachedUrl,
+        currentMode: currentSession?.mode,
+        currentCode: currentSession?.current_code,
+      });
 
       // Optimistically add user message
       const tempUserMsg = {
         id: crypto.randomUUID(),
-        session_id: sessionId,
+        session_id: activeSessionId,
         role: 'user',
-        content: trimmed,
+        content: outboundMessage,
         meta: {},
         created_at: new Date().toISOString(),
       };
@@ -233,11 +261,19 @@ export default function TutorPanel({ sessionId, onNewStructured }) {
       setSending(true);
 
       try {
-        const data = await post(`/sessions/${sessionId}/chat`, {
-          message: trimmed,
-        });
+        const endpoint = normalizedAttachedUrl
+          ? (isYoutubeUrl(normalizedAttachedUrl)
+              ? `/sessions/${activeSessionId}/youtube/analyze`
+              : `/sessions/${activeSessionId}/webpage/analyze`)
+          : `/sessions/${activeSessionId}/chat`;
+        const payload = normalizedAttachedUrl
+          ? { message: trimmed, url: normalizedAttachedUrl }
+          : { message: outboundMessage, url: undefined, mode };
+        const data = await post(endpoint, payload);
 
+        setSessionMode(activeSessionId, data.mode);
         addMessage(data.reply);
+        setAttachedUrl('');
 
         if (data.structured) {
           setStructured(data.structured);
@@ -257,7 +293,7 @@ export default function TutorPanel({ sessionId, onNewStructured }) {
         setSending(false);
       }
     },
-    [sessionId, isSending, addMessage, setSending, setStructured, onNewStructured]
+    [sessionId, isSending, attachedUrl, currentSession, addMessage, setSending, setStructured, setSessionMode, onNewStructured]
   );
 
   function handleKeyDown(e) {
@@ -268,7 +304,7 @@ export default function TutorPanel({ sessionId, onNewStructured }) {
   }
 
   const suggestions = structured?.follow_up_suggestions || [];
-  const canSend = input.trim().length > 0 && !isSending;
+  const canSend = (input.trim().length > 0 || attachedUrl) && !isSending;
 
   return (
     <div
@@ -287,8 +323,11 @@ export default function TutorPanel({ sessionId, onNewStructured }) {
         <span className="text-sm font-semibold text-on-background">
           Tutor Chat
         </span>
+        <span className="ml-auto text-xs px-2 py-1 rounded-full border border-primary/30 bg-primary/10 text-primary">
+          {formatModeLabel(currentSession?.mode || 'general')}
+        </span>
         {isSending && (
-          <span className="ml-auto text-xs text-on-surface-variant animate-pulse flex items-center gap-1">
+          <span className="text-xs text-on-surface-variant animate-pulse flex items-center gap-1">
             <span className="icon text-sm">psychology</span>
             Thinking…
           </span>
@@ -324,6 +363,17 @@ export default function TutorPanel({ sessionId, onNewStructured }) {
         disabled={isSending}
       />
 
+      {/* Attached URL Preview */}
+      {attachedUrl && (
+        <div className="px-4 py-2 flex items-center gap-2 bg-primary/10 border-t border-primary/20">
+          <Globe size={14} className="text-primary" />
+          <span className="text-xs text-primary flex-1 truncate">{attachedUrl}</span>
+          <button onClick={() => setAttachedUrl('')} className="text-primary hover:text-primary-light">
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       {/* Input area */}
       <div
         className="flex-shrink-0 p-3"
@@ -358,6 +408,15 @@ export default function TutorPanel({ sessionId, onNewStructured }) {
 
           <button
             type="button"
+            onClick={handleAttachUrl}
+            title="Attach URL"
+            className={`p-2 rounded-lg transition-colors ${attachedUrl ? 'text-primary bg-primary/10' : 'text-on-surface-variant hover:bg-white/5'}`}
+          >
+            <Paperclip size={18} />
+          </button>
+
+          <button
+            type="button"
             onClick={() => sendMessage(input)}
             disabled={!canSend || !sessionId}
             className={
@@ -369,13 +428,13 @@ export default function TutorPanel({ sessionId, onNewStructured }) {
             style={
               canSend && sessionId
                 ? {
-                    background: 'linear-gradient(135deg, #3bbffa, #8a95ff)',
-                    color: '#fff',
-                  }
+                  background: 'linear-gradient(135deg, #3bbffa, #8a95ff)',
+                  color: '#fff',
+                }
                 : {
-                    background: 'rgba(64,72,93,0.3)',
-                    color: '#a3aac4',
-                  }
+                  background: 'rgba(64,72,93,0.3)',
+                  color: '#a3aac4',
+                }
             }
             aria-label="Send message"
           >

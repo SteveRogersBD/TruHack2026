@@ -48,6 +48,7 @@ class AgentState:
     user_id: str
     role: Role
     session_id: str
+    mode: str = "general"
     learning_goal: str = ""
     current_code: str = ""
     last_output: str = ""
@@ -82,6 +83,7 @@ class AgentState:
             user_id=data["user_id"],
             role=Role(data["role"]),
             session_id=data["session_id"],
+            mode=data.get("mode", "general"),
             learning_goal=data.get("learning_goal", ""),
             current_code=data.get("current_code", ""),
             last_output=data.get("last_output", ""),

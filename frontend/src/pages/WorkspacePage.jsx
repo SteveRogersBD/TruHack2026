@@ -10,7 +10,7 @@ import {
   LayoutPanelLeft, Code2, Maximize2, Columns2,
   MousePointerClick,
 } from 'lucide-react'
-import { post, put } from '../api/client.js'
+import { post } from '../api/client.js'
 import useWorkspaceStore from '../store/useWorkspaceStore.js'
 
 import TopNav        from '../components/TopNav/TopNav.jsx'
@@ -19,6 +19,7 @@ import Canvas        from '../components/Canvas/Canvas.jsx'
 import CodeEditor    from '../components/IDE/CodeEditor.jsx'
 import ChatSidebar   from '../components/ChatSidebar/ChatSidebar.jsx'
 import { useSpeech } from '../components/Avatar/Avatar.jsx'
+import { formatModeLabel, inferChatMode } from '../utils/chatMode.js'
 
 /* ------------------------------------------------------------------ */
 /* Empty / first-visit                                                  */
@@ -32,7 +33,9 @@ const STARTERS = [
   { icon: LayoutPanelLeft, label: 'Krebs cycle',            desc: 'Step diagrams' },
 ]
 
-function EmptyState() {
+function EmptyState({ onStartChat }) {
+  const [msg, setMsg] = useState('')
+
   return (
     <div
       style={{
@@ -49,8 +52,57 @@ function EmptyState() {
         Hi, I'm your AI tutor.
       </p>
       <p style={{ fontSize: 13, color: '#8A8F98', marginBottom: 28 }}>
-        Select a session or create a new one to get started.
+        Type a message to start a new learning session.
       </p>
+
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          if (msg.trim()) onStartChat(msg)
+        }}
+        style={{ width: '100%', maxWidth: 480, position: 'relative', marginBottom: 32 }}
+      >
+        <input
+          type="text"
+          autoFocus
+          placeholder="Message your tutor..."
+          value={msg}
+          onChange={(e) => setMsg(e.target.value)}
+          style={{
+            width: '100%',
+            padding: '14px 20px',
+            borderRadius: 12,
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            color: '#fff',
+            fontSize: 14,
+            outline: 'none',
+          }}
+        />
+        <button
+          type="submit"
+          disabled={!msg.trim()}
+          style={{
+            position: 'absolute',
+            right: 8,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            background: '#5E6AD2',
+            border: 'none',
+            borderRadius: 8,
+            padding: '6px 14px',
+            color: '#fff',
+            cursor: msg.trim() ? 'pointer' : 'not-allowed',
+            opacity: msg.trim() ? 1 : 0.5,
+            fontSize: 12,
+            fontWeight: 500,
+            transition: 'opacity 0.2s',
+          }}
+        >
+          Send
+        </button>
+      </form>
+
       <div
         style={{
           display: 'grid',
@@ -63,6 +115,7 @@ function EmptyState() {
         {STARTERS.map((t) => (
           <div
             key={t.label}
+            onClick={() => onStartChat(`Teach me about ${t.label}`)}
             style={{
               padding: 14,
               borderRadius: 12,
@@ -301,6 +354,19 @@ function SessionHeader({ session, onTitleSave }) {
           {session.learning_goal}
         </span>
       )}
+      <span
+        style={{
+          fontSize: 11,
+          padding: '2px 8px',
+          borderRadius: 99,
+          background: 'rgba(59,191,250,0.12)',
+          color: '#7AD9FF',
+          border: '0.5px solid rgba(59,191,250,0.3)',
+          flexShrink: 0,
+        }}
+      >
+        {formatModeLabel(session.mode || 'general')}
+      </span>
     </div>
   )
 }
@@ -324,31 +390,6 @@ function ContentWrapper({ structured, canvasStep, children }) {
         gap: 8,
       }}
     >
-      {/* Step indicator row */}
-      {total > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-          <span
-            style={{
-              fontSize: 10,
-              padding: '2px 8px',
-              borderRadius: 99,
-              background: 'rgba(94,106,210,0.12)',
-              color: '#A5AFFF',
-              border: '0.5px solid rgba(94,106,210,0.25)',
-              fontWeight: 500,
-              flexShrink: 0,
-            }}
-          >
-            Step {canvasStep + 1} of {total}
-          </span>
-          {canvasActions[canvasStep]?.label && (
-            <span style={{ fontSize: 12, color: '#8A8F98' }}>
-              {canvasActions[canvasStep].label}
-            </span>
-          )}
-        </div>
-      )}
-
       {/* Actual content (canvas or IDE) */}
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', borderRadius: 8 }}>
         {children}
@@ -377,6 +418,10 @@ function ContentWrapper({ structured, canvasStep, children }) {
 /* Main WorkspacePage                                                    */
 /* ------------------------------------------------------------------ */
 export default function WorkspacePage() {
+  const sessions            = useWorkspaceStore((s) => s.sessions)
+  const setSessions         = useWorkspaceStore((s) => s.setSessions)
+  const setCurrentSession   = useWorkspaceStore((s) => s.setCurrentSession)
+  const setMessages         = useWorkspaceStore((s) => s.setMessages)
   const currentSession      = useWorkspaceStore((s) => s.currentSession)
   const structured          = useWorkspaceStore((s) => s.structured)
   const isExecuting         = useWorkspaceStore((s) => s.isExecuting)
@@ -385,6 +430,8 @@ export default function WorkspacePage() {
   const setExecuting        = useWorkspaceStore((s) => s.setExecuting)
   const setStructured       = useWorkspaceStore((s) => s.setStructured)
   const updateSessionInList = useWorkspaceStore((s) => s.updateSessionInList)
+  const setSessionMode      = useWorkspaceStore((s) => s.setSessionMode)
+  const setLoading          = useWorkspaceStore((s) => s.setLoading)
 
   const [activeTab,        setActiveTab]        = useState('canvas')
   const [isSplit,          setIsSplit]          = useState(false)
@@ -418,6 +465,7 @@ export default function WorkspacePage() {
     setExecutionResult(null)
     try {
       const data = await post(`/sessions/${currentSession.id}/execute`, { code, language })
+      setSessionMode(currentSession.id, data.mode)
       setExecutionResult(data.execution)
       if (data.reply)      addMessage(data.reply)
       if (data.structured) handleNewStructured(data.structured)
@@ -426,13 +474,40 @@ export default function WorkspacePage() {
     } finally {
       setExecuting(false)
     }
-  }, [currentSession, isExecuting, setExecuting, addMessage, handleNewStructured])
+  }, [currentSession, isExecuting, setExecuting, setSessionMode, addMessage, handleNewStructured])
 
   const handleTitleSave = useCallback(async (newTitle) => {
     if (!currentSession?.id) return
     updateSessionInList({ ...currentSession, title: newTitle })
-    try { await put(`/sessions/${currentSession.id}/goal`, { goal: currentSession.learning_goal }) } catch {}
   }, [currentSession, updateSessionInList])
+
+  const handleStartChat = useCallback(async (message) => {
+    setLoading(true)
+    try {
+      const newSession = await post('/sessions', { title: 'New Chat' })
+      setSessions([newSession, ...sessions])
+      setCurrentSession(newSession)
+      setMessages([])
+      setStructured(null)
+
+      const mode = inferChatMode({ text: message, currentMode: newSession.mode })
+      const { reply, structured: s, mode: resolvedMode } = await post(`/sessions/${newSession.id}/chat`, { message, mode })
+      setSessionMode(newSession.id, resolvedMode)
+      addMessage({
+          id: crypto.randomUUID(),
+          session_id: newSession.id,
+          role: 'user',
+          content: message,
+          created_at: new Date().toISOString()
+      })
+      addMessage(reply)
+      if (s) setStructured(s)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }, [sessions, setSessions, setCurrentSession, setMessages, setStructured, setSessionMode, addMessage, setLoading])
 
   /* ── Content renderer ── */
   function renderContent() {
@@ -575,7 +650,7 @@ export default function WorkspacePage() {
       />
 
       {/* ── Top nav (sessions) ── */}
-      <div style={{ position: 'relative', zIndex: 1 }}>
+      <div style={{ position: 'relative', zIndex: 10 }}>
         <TopNav />
       </div>
 
@@ -632,7 +707,7 @@ export default function WorkspacePage() {
 
         {/* Zone 3: Active content */}
         {!currentSession
-          ? <EmptyState />
+          ? <EmptyState onStartChat={handleStartChat} />
           : (
             <div
               style={{

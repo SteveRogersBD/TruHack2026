@@ -111,6 +111,7 @@ export default function AuthPage() {
           data = await post('/auth/register', { email, password, role });
         }
         login(data.access_token, data.user);
+        window.location.hash = '';
       } catch (err) {
         setError(err.message || 'Authentication failed. Please try again.');
       } finally {
@@ -303,14 +304,15 @@ export default function AuthPage() {
           {/* Bypass / demo login */}
           <button
             type="button"
-            onClick={() =>
+            onClick={() => {
               login('demo_token', {
                 id: 'demo',
                 email: 'demo@scholar.local',
                 role: 'student',
                 created_at: new Date().toISOString(),
-              })
-            }
+              });
+              window.location.hash = '';
+            }}
             className="w-full mt-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 hover:brightness-110 active:scale-[0.98]"
             style={{
               background: 'rgba(59,191,250,0.08)',
