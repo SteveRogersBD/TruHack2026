@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+*.pyo
+.env
+.env.*
+*.state.json
+.claude/
+.git/
+.gitignore
+*.md
+test_*.py
+check_db.py
+Dockerfile
+.dockerignore

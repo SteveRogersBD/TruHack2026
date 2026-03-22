@@ -24,9 +24,9 @@ if str(BACKEND_DIR) not in sys.path:
 
 
 def _load_dotenv() -> None:
-    # env.py -> BackEnd/alembic/env.py; repo root is one level up from alembic.
-    backend_root = Path(__file__).resolve().parents[1]
-    dotenv_path = backend_root / ".env"
+    # env.py -> BackEnd/alembic/env.py; repo root is two levels up from BackEnd.
+    repo_root = Path(__file__).resolve().parents[2]
+    dotenv_path = repo_root / ".env"
     if dotenv_path.exists():
         try:
             from dotenv import load_dotenv

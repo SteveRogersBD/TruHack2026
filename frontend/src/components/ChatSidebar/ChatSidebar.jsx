@@ -7,6 +7,7 @@ import { post } from '../../api/client.js'
 import useWorkspaceStore from '../../store/useWorkspaceStore.js'
 import { formatModeLabel, inferChatMode, isYoutubeUrl, normalizeUrl } from '../../utils/chatMode.js'
 import { buildResourcePreviewStructured } from '../../utils/resourcePreview.js'
+import { isStructuredResponse } from '../../utils/structured.js'
 
 /* ── Thinking dots ──────────────────────────────────────────────── */
 function ThinkingDots() {
@@ -61,10 +62,211 @@ function ThinkingDots() {
   )
 }
 
+function SearchResultsRail({ results }) {
+  const kind = results?.kind
+  const items = Array.isArray(results?.items) ? results.items : []
+  if (!kind || items.length === 0) return null
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        gap: 10,
+        overflowX: 'auto',
+        paddingBottom: 4,
+        maxWidth: '100%',
+      }}
+    >
+      {items.map((item, idx) => {
+        const href = item.pdf_url || item.url
+        const title = item.title || `${kind} result ${idx + 1}`
+        const subtitle =
+          kind === 'image'
+            ? item.source
+            : kind === 'video'
+              ? [item.channel, item.duration].filter(Boolean).join(' • ')
+              : [item.authors, item.publication].filter(Boolean).join(' • ')
+
+        return (
+          <a
+            key={`${href}-${idx}`}
+            href={href}
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              minWidth: kind === 'image' ? 220 : 260,
+              maxWidth: kind === 'image' ? 220 : 260,
+              textDecoration: 'none',
+              color: 'inherit',
+              borderRadius: 12,
+              overflow: 'hidden',
+              border: '0.5px solid rgba(255,255,255,0.08)',
+              background: 'rgba(255,255,255,0.04)',
+              display: 'flex',
+              flexDirection: 'column',
+              flexShrink: 0,
+            }}
+          >
+            {(item.thumbnail || (kind === 'image' && item.url)) && (
+              <div
+                style={{
+                  height: kind === 'image' ? 148 : 132,
+                  background: '#0c0d12',
+                  overflow: 'hidden',
+                }}
+              >
+                <img
+                  src={item.thumbnail || item.url}
+                  alt={title}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    display: 'block',
+                  }}
+                />
+              </div>
+            )}
+
+            <div style={{ padding: '10px 12px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ fontSize: 13, lineHeight: 1.35, color: '#EDEDEF', fontWeight: 500 }}>
+                {title}
+              </div>
+              {subtitle && (
+                <div style={{ fontSize: 11, lineHeight: 1.4, color: '#8A8F98' }}>
+                  {subtitle}
+                </div>
+              )}
+              {item.snippet && (
+                <div style={{ fontSize: 11, lineHeight: 1.4, color: '#B6BAC4' }}>
+                  {item.snippet}
+                </div>
+              )}
+            </div>
+          </a>
+        )
+      })}
+    </div>
+  )
+}
+
+/* ── Rich Message Content ───────────────────────────────────────── */
+function RichMessage({ content, isUser }) {
+  if (typeof content !== 'string') return content
+
+  const parts = content.split(/(!?\[.*?\]\(.*?\))/g)
+
+  return (
+    <div style={{ wordBreak: 'break-word' }}>
+      {parts.map((part, i) => {
+        const imgMatch = part.match(/^!\[(.*?)\]\((.*?)\)$/)
+        if (imgMatch) {
+          return (
+            <div key={i} style={{ marginTop: 8, marginBottom: 8, overflow: 'hidden', borderRadius: 8 }}>
+              <img 
+                src={imgMatch[2]} 
+                alt={imgMatch[1]} 
+                style={{ width: '100%', display: 'block', borderRadius: 8 }} 
+                loading="lazy"
+              />
+            </div>
+          )
+        }
+
+        const linkMatch = part.match(/^\[(.*?)\]\((.*?)\)$/)
+        if (linkMatch) {
+          const url = linkMatch[2]
+          const label = linkMatch[1]
+          
+          if (url.includes('youtube.com') || url.includes('youtu.be')) {
+            let videoId = ''
+            if (url.includes('v=')) videoId = url.split('v=')[1]?.split('&')[0]
+            else if (url.includes('youtu.be/')) videoId = url.split('youtu.be/')[1]?.split('?')[0]
+            else if (url.includes('embed/')) videoId = url.split('embed/')[1]?.split('?')[0]
+
+            if (videoId) {
+              const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`
+              return (
+                <div key={i} style={{ marginTop: 8, marginBottom: 8, borderRadius: 12, overflow: 'hidden', position: 'relative' }}>
+                  <a href={url} target="_blank" rel="noreferrer" style={{ display: 'block', textDecoration: 'none' }}>
+                    <div style={{ position: 'relative', width: '100%', aspectRatio: '16/9', background: '#111' }}>
+                      <img 
+                        src={thumbnailUrl} 
+                        alt={label} 
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        onError={(e) => {
+                          e.target.src = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`
+                        }}
+                      />
+                      <div style={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        width: '50px',
+                        height: '50px',
+                        background: 'rgba(255, 0, 0, 0.8)',
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 4px 15px rgba(0,0,0,0.3)',
+                        transition: 'transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+                      }}>
+                        <div style={{
+                          width: 0,
+                          height: 0,
+                          borderTop: '10px solid transparent',
+                          borderBottom: '10px solid transparent',
+                          borderLeft: '18px solid #fff',
+                          marginLeft: '4px'
+                        }} />
+                      </div>
+                    </div>
+                    {label && (
+                      <div style={{
+                        padding: '10px 14px',
+                        background: 'rgba(255,255,255,0.03)',
+                        borderTop: '1px solid rgba(255,255,255,0.05)',
+                        fontSize: '0.85rem',
+                        color: '#A5AFFF',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }}>
+                        {label}
+                      </div>
+                    )}
+                  </a>
+                </div>
+              )
+            }
+          }
+
+          return (
+            <a 
+              key={i} 
+              href={url} 
+              target="_blank" 
+              rel="noreferrer" 
+              style={{ color: isUser ? '#fff' : '#A5AFFF', textDecoration: 'underline' }}
+            >
+              {label}
+            </a>
+          )
+        }
+
+        return <span key={i}>{part}</span>
+      })}
+    </div>
+  )
+}
+
 /* ── Message bubble ─────────────────────────────────────────────── */
 function MessageBubble({ message }) {
   const isUser = message.role === 'user'
   const [feedback, setFeedback] = useState(null)
+  const searchResults = !isUser ? message?.meta?.search_results : null
 
   let displayContent = message.content
   if (!isUser && typeof message.content === 'string') {
@@ -128,8 +330,10 @@ function MessageBubble({ message }) {
                 }
           }
         >
-          {displayContent}
+          <RichMessage content={displayContent} isUser={isUser} />
         </div>
+
+        {!isUser && searchResults && <SearchResultsRail results={searchResults} />}
 
         {/* AI feedback — only visible on hover */}
         {!isUser && (
@@ -210,12 +414,7 @@ export default function ChatSidebar({ sessionId, onNewStructured }) {
     const outboundMessage = normalizedAttachedUrl
       ? `${trimmed}\n\nAttached URL: ${normalizedAttachedUrl}`
       : trimmed
-    const mode = inferChatMode({
-      text: trimmed,
-      attachedUrl: normalizedAttachedUrl,
-      currentMode: currentSession?.mode,
-      currentCode: currentSession?.current_code,
-    })
+    
     addMessage({
       id: crypto.randomUUID(),
       session_id: activeSessionId,
@@ -234,14 +433,17 @@ export default function ChatSidebar({ sessionId, onNewStructured }) {
         : `/sessions/${activeSessionId}/chat`
       const payload = normalizedAttachedUrl
         ? { message: trimmed, url: normalizedAttachedUrl }
-        : { message: outboundMessage, url: undefined, mode }
+        : { message: outboundMessage, url: undefined }
       const data = await post(endpoint, payload)
       setSessionMode(activeSessionId, data.mode)
       addMessage(data.reply)
       setAttachedUrl('') // clear after send
-      if (data.structured) {
-        setStructured(data.structured)
-        onNewStructured?.(data.structured)
+      const nextStructured = isStructuredResponse(data.structured)
+        ? data.structured
+        : (isStructuredResponse(data.reply?.meta) ? data.reply.meta : null)
+      if (nextStructured) {
+        setStructured(nextStructured)
+        onNewStructured?.(nextStructured)
       }
     } catch (err) {
       addMessage({
@@ -269,11 +471,10 @@ export default function ChatSidebar({ sessionId, onNewStructured }) {
         flexDirection: 'column',
         background: 'linear-gradient(180deg, #0d0d10 0%, #0a0a0d 100%)',
         borderLeft: '0.5px solid rgba(255,255,255,0.06)',
-        borderRadius: '0 14px 14px 0', // rounded right edges if part of main container
+        borderRadius: '0 14px 14px 0',
         height: '100%',
       }}
     >
-      {/* ── Header ── */}
       <div
         style={{
           display: 'flex',
@@ -301,7 +502,6 @@ export default function ChatSidebar({ sessionId, onNewStructured }) {
         </span>
       </div>
 
-      {/* ── Chat History ── */}
       <div
         style={{
           flex: 1,
@@ -317,7 +517,6 @@ export default function ChatSidebar({ sessionId, onNewStructured }) {
         <div ref={bottomRef} style={{ paddingBottom: 16 }} />
       </div>
 
-      {/* ── Input Area ── */}
       <div
         style={{
           padding: '12px 16px',
@@ -326,7 +525,6 @@ export default function ChatSidebar({ sessionId, onNewStructured }) {
           position: 'relative'
         }}
       >
-        {/* Attached URL Preview */}
         {attachedUrl && (
           <div
             style={{
@@ -354,7 +552,6 @@ export default function ChatSidebar({ sessionId, onNewStructured }) {
           </div>
         )}
 
-        {/* Suggestion chips */}
         {suggestions.length > 0 && (
           <div
             style={{
@@ -405,7 +602,6 @@ export default function ChatSidebar({ sessionId, onNewStructured }) {
           </div>
         )}
 
-        {/* Text Input Row */}
         <div style={{ display: 'flex', gap: 8 }}>
           <input
             type="text"
@@ -470,16 +666,6 @@ export default function ChatSidebar({ sessionId, onNewStructured }) {
               justifyContent: 'center',
               transition: 'all 200ms cubic-bezier(0.16,1,0.3,1)',
               flexShrink: 0,
-            }}
-            onMouseEnter={(e) => {
-              if (canSend && sessionId) {
-                e.currentTarget.style.background = 'rgba(94,106,210,1)'
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (canSend && sessionId) {
-                e.currentTarget.style.background = 'rgba(94,106,210,0.9)'
-              }
             }}
           >
             {isSending

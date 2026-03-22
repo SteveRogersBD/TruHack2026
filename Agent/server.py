@@ -14,18 +14,10 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from agent import agent_graph
+from agent import graph as agent_graph
 from db import get_db
 from models import AuthSession, ChatMessage, ChatSession, MessageRole, User, UserRole
-from tools import (
-    python_executor,
-    image_finder,
-    youtube_finder,
-    math_solver,
-    web_search_tool,
-    get_youtube_transcript,
-    scrape_webpage,
-)
+from tools import python_executor
 
 app = FastAPI(title="Tutor Agent API")
 
@@ -236,9 +228,9 @@ def _run_tutor(
     """Invoke the agent graph and return (speech_content, structured_data)."""
     final_state = agent_graph.invoke({
         "messages": messages,
+        "next_agent": "tutor",
         "topic": "General",
         "course": "General",
-        "learning_goal": "General",
         "current_code": current_code,
         "last_execution": last_execution,
     })
@@ -394,7 +386,7 @@ def save_code(
     session_id: UUID = Path(...),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-) -> Dict[Any, Any]:
+) -> Dict[str, Any]:
     session = _get_session_or_404(session_id, user.id, db)
     session.current_code = req.code
     session.updated_at = datetime.now(timezone.utc)

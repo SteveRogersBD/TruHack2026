@@ -31,75 +31,43 @@ def python_executor(code: str) -> str:
 
 
 def image_finder(query: str) -> str:
-    """Find a relevant image with multiple API fallbacks. Returns image URL."""
-    # Try Pexels first
-    pexels_key = os.getenv("PEXELS_API_KEY")
-    if pexels_key:
-        import requests
-        try:
-            resp = requests.get(
-                f"https://api.pexels.com/v1/search?query={query}&per_page=1",
-                headers={"Authorization": pexels_key},
-                timeout=5
-            )
-            data = resp.json()
-            if data.get("photos"):
-                return data["photos"][0]["src"]["large"]
-        except:
-            pass
-
-    # Try SerpAPI as fallback
-    serp_key = os.getenv("SERP_API_KEY")
-    if serp_key:
-        import requests
-        try:
-            resp = requests.get(
-                f"https://serpapi.com/search.json?q={query}&tbm=isch&api_key={serp_key}",
-                timeout=5
-            )
-            data = resp.json()
-            if data.get("images_results"):
-                return data["images_results"][0]["original"]
-        except:
-            pass
-            
-    return "https://images.unsplash.com/photo-1454165833767-0266b0496d63?auto=format&fit=crop&q=80&w=1000"
+    """Find a relevant image via the Pexels API. Returns image URL."""
+    api_key = os.getenv("PEXELS_API_KEY")
+    if not api_key:
+        return "Image search failed: No Pexels API key found."
+    import requests
+    try:
+        resp = requests.get(
+            f"https://api.pexels.com/v1/search?query={query}&per_page=1",
+            headers={"Authorization": api_key},
+            timeout=10,
+        )
+        data = resp.json()
+        if data.get("photos"):
+            return data["photos"][0]["src"]["large"]
+        return f"No images found for: {query}"
+    except Exception as e:
+        return f"Image search error: {str(e)}"
 
 
 def youtube_finder(query: str) -> str:
-    """Find a relevant YouTube video with multiple fallbacks. Returns watch URL."""
-    # Try YouTube Data API first
-    yt_key = os.getenv("YT_API_KEY")
-    if yt_key:
-        import requests
-        try:
-            resp = requests.get(
-                f"https://www.googleapis.com/youtube/v3/search?part=snippet&q={query}&key={yt_key}&type=video&maxResults=1",
-                timeout=5
-            )
-            data = resp.json()
-            if data.get("items"):
-                video_id = data["items"][0]["id"]["videoId"]
-                return f"https://www.youtube.com/watch?v={video_id}"
-        except:
-            pass
-
-    # Try SerpAPI fallback
-    serp_key = os.getenv("SERP_API_KEY")
-    if serp_key:
-        import requests
-        try:
-            resp = requests.get(
-                f"https://serpapi.com/search?engine=youtube_search&search_query={query}&api_key={serp_key}",
-                timeout=5
-            )
-            data = resp.json()
-            if data.get("video_results"):
-                return data["video_results"][0]["link"]
-        except:
-            pass
-            
-    return "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    """Find a relevant YouTube video. Returns watch URL."""
+    api_key = os.getenv("YT_API_KEY")
+    if not api_key:
+        return "YouTube search failed: No YouTube API key found."
+    import requests
+    try:
+        resp = requests.get(
+            f"https://www.googleapis.com/youtube/v3/search?part=snippet&q={query}&key={api_key}&type=video&maxResults=1",
+            timeout=10,
+        )
+        data = resp.json()
+        if data.get("items"):
+            video_id = data["items"][0]["id"]["videoId"]
+            return f"https://www.youtube.com/watch?v={video_id}"
+        return f"No videos found for: {query}"
+    except Exception as e:
+        return f"YouTube search error: {str(e)}"
 
 
 def math_solver(expression: str, command: str = "simplify") -> str:

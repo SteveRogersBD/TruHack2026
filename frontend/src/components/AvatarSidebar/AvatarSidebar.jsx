@@ -11,7 +11,8 @@
  */
 import { Canvas } from '@react-three/fiber'
 import { useGLTF, Environment } from '@react-three/drei'
-import { Suspense } from 'react'
+import { useFrame } from '@react-three/fiber'
+import { Suspense, useRef, useMemo, useEffect } from 'react'
 import { Volume2, VolumeX, PanelLeftClose, ExternalLink } from 'lucide-react'
 
 const RPM_AVATAR_URL = '/avatar.glb'
@@ -32,10 +33,61 @@ const STATE_CFG = {
   idle:      { dotColor: '#555555', badgeText: 'IDLE',      badgeFg: '#888888', badgeBg: 'rgba(255,255,255,0.06)',leftLabel: 'Idle'       },
 }
 
-/* ── Three.js model ──────────────────────────────────────────────── */
-function RPMModel() {
+/* ── Three.js model with talking animation ───────────────────────── */
+function RPMModel({ isSpeaking }) {
   const { scene } = useGLTF(RPM_AVATAR_URL)
-  return <primitive object={scene} position={[0, -2.55, 0]} scale={1.6} />
+  const primitiveRef = useRef()
+  const headRef = useRef()
+  const mouthRef = useRef()
+
+  // Find parts with broad search
+  useEffect(() => {
+    scene.traverse((obj) => {
+      const name = obj.name.toLowerCase()
+      if (obj.isBone && (name.includes('head') || name.includes('neck'))) {
+        headRef.current = obj
+      }
+      if (obj.isMesh && (name.includes('mouth') || name.includes('teeth') || name.includes('head'))) {
+        mouthRef.current = obj
+      }
+    })
+  }, [scene])
+
+  useFrame((state) => {
+    if (!primitiveRef.current) return
+    const t = state.clock.getElapsedTime()
+    
+    // 1. Natural idle sway (Sway THE ENTIRE MODEL if no bone found)
+    const target = headRef.current || primitiveRef.current
+    target.rotation.y = Math.sin(t * 0.5) * 0.05
+    target.rotation.x = Math.cos(t * 0.3) * 0.03
+
+    // 2. AGGRESSIVE Talking Animation
+    if (isSpeaking) {
+      // Mouth jitter
+      const mouthOpen = Math.abs(Math.sin(t * 22)) * 0.7
+      if (mouthRef.current && mouthRef.current.morphTargetInfluences) {
+        mouthRef.current.morphTargetInfluences[0] = mouthOpen
+      } else if (mouthRef.current) {
+        mouthRef.current.scale.y = 1 + mouthOpen * 0.15
+      }
+
+      // Conversational head bob/tilt
+      target.rotation.z = Math.sin(t * 10) * 0.08 
+      target.position.y += Math.sin(t * 14) * 0.005
+    } else {
+      // Reset
+      if (mouthRef.current) {
+        if (mouthRef.current.morphTargetInfluences) mouthRef.current.morphTargetInfluences[0] = 0
+        mouthRef.current.scale.y = 1
+      }
+      if (!headRef.current && primitiveRef.current) {
+        primitiveRef.current.rotation.z = 0
+      }
+    }
+  })
+
+  return <primitive ref={primitiveRef} object={scene} position={[0, -2.55, 0]} scale={1.6} />
 }
 function FallbackSphere() {
   return (
@@ -200,7 +252,7 @@ export default function AvatarSidebar({
             <directionalLight position={[-1.5, 1, 1]} intensity={0.35} color="#5E6AD2" />
             <directionalLight position={[0, 2, -1]} intensity={0.2} color="#818CF8" />
             <Suspense fallback={<FallbackSphere />}>
-              <RPMModel />
+              <RPMModel isSpeaking={isSpeaking} />
               <Environment preset="city" />
             </Suspense>
           </Canvas>
@@ -250,10 +302,13 @@ export default function AvatarSidebar({
         <div style={{ display: 'flex', gap: 4 }}>
           <CtrlBtn
             icon={isMuted ? VolumeX : Volume2}
-            label={isMuted ? 'Voice off' : 'Voice on'}
+            label={isMuted ? 'Voice Off' : 'Voice On'}
             active={!isMuted}
-            onClick={onMuteToggle}
-            title={isMuted ? 'Unmute voice' : 'Mute voice'}
+            onClick={() => {
+              if (onMuteToggle) onMuteToggle();
+              // Add a small audible feedback or visual signal if needed
+            }}
+            title={isMuted ? 'Turn voice on' : 'Turn voice off'}
           />
           <div style={{ flex: 1 }}>
             <select

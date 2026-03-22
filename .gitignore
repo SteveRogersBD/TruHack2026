@@ -2,10 +2,13 @@
 # Secrets & Environment
 # ========================
 .env
+.env.*
 .env.local
 .env.development
 .env.production
 .env*.local
+**/.env
+**/.env.*
 
 # ========================
 # Python
@@ -54,3 +57,4 @@ Thumbs.db
 *.tmp
 *.state.json
 .claude
+/BackEnd/.env

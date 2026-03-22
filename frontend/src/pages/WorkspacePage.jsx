@@ -18,8 +18,10 @@ import AvatarSidebar from '../components/AvatarSidebar/AvatarSidebar.jsx'
 import Canvas        from '../components/Canvas/Canvas.jsx'
 import CodeEditor    from '../components/IDE/CodeEditor.jsx'
 import ChatSidebar   from '../components/ChatSidebar/ChatSidebar.jsx'
+import VideoWorkspace from '../components/VideoWorkspace/VideoWorkspace.jsx'
 import { useSpeech } from '../components/Avatar/Avatar.jsx'
 import { formatModeLabel, inferChatMode } from '../utils/chatMode.js'
+import { isStructuredResponse } from '../utils/structured.js'
 
 /* ------------------------------------------------------------------ */
 /* Empty / first-visit                                                  */
@@ -433,6 +435,7 @@ export default function WorkspacePage() {
   const setSessionMode      = useWorkspaceStore((s) => s.setSessionMode)
   const setSessionCode      = useWorkspaceStore((s) => s.setSessionCode)
   const setLoading          = useWorkspaceStore((s) => s.setLoading)
+  const appMode             = useWorkspaceStore((s) => s.appMode)
 
   const [activeTab,        setActiveTab]        = useState('canvas')
   const [isSplit,          setIsSplit]          = useState(false)
@@ -500,7 +503,11 @@ export default function WorkspacePage() {
   const handleStartChat = useCallback(async (message) => {
     setLoading(true)
     try {
-      const newSession = await post('/sessions', { title: 'New Chat' })
+      // Dynamic title based on message snippet
+      const snippet = message.length > 25 ? message.substring(0, 25) + '...' : message
+      const sessionTitle = `Session: ${snippet}`
+      
+      const newSession = await post('/sessions', { title: sessionTitle })
       setSessions([newSession, ...sessions])
       setCurrentSession(newSession)
       setMessages([])
@@ -517,7 +524,10 @@ export default function WorkspacePage() {
           created_at: new Date().toISOString()
       })
       addMessage(reply)
-      if (s) handleNewStructured(s, newSession.id)
+      const nextStructured = isStructuredResponse(s)
+        ? s
+        : (isStructuredResponse(reply?.meta) ? reply.meta : null)
+      if (nextStructured) handleNewStructured(nextStructured, newSession.id)
     } catch (err) {
       console.error(err)
     } finally {
@@ -722,27 +732,28 @@ export default function WorkspacePage() {
         )}
 
         {/* Zone 3: Active content */}
-        {!currentSession
-          ? <EmptyState onStartChat={handleStartChat} />
-          : (
-            <div
-              style={{
-                flex: 1,
-                minHeight: 0,
-                display: 'flex',
-                flexDirection: 'column',
-                overflow: 'hidden',
-              }}
-            >
-              {renderContent()}
-            </div>
-          )
-        }
+        {appMode === 'attachment' ? (
+          <VideoWorkspace />
+        ) : !currentSession ? (
+          <EmptyState onStartChat={handleStartChat} />
+        ) : (
+          <div
+            style={{
+              flex: 1,
+              minHeight: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+            }}
+          >
+            {renderContent()}
+          </div>
+        )}
 
         </div>
 
         {/* Right Side: Chat Session */}
-        {currentSession && (
+        {currentSession && appMode === 'normal' && (
           <ChatSidebar
             sessionId={currentSession.id}
             onNewStructured={handleNewStructured}

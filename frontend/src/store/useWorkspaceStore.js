@@ -38,6 +38,9 @@ import { create } from 'zustand';
  */
 
 const useWorkspaceStore = create((set, get) => ({
+  appMode: 'normal',
+  setAppMode: (appMode) => set({ appMode }),
+
   /** @type {Session[]} */
   sessions: [],
 

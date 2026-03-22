@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { get, post, del } from '../../api/client.js';
 import useAuthStore from '../../store/useAuthStore.js';
 import useWorkspaceStore from '../../store/useWorkspaceStore.js';
+import { extractStructuredFromMessages } from '../../utils/structured.js';
 
 /** Compact spinner */
 function MiniSpinner() {
@@ -230,7 +231,9 @@ export default function Sidebar() {
           get(`/sessions/${session.id}/messages`),
         ]);
         setCurrentSession(sessionData);
-        setMessages(messagesData.messages || []);
+        const nextMessages = messagesData.messages || [];
+        setMessages(nextMessages);
+        setStructured(extractStructuredFromMessages(nextMessages));
       } catch {
         setCurrentSession(session);
         setMessages([]);

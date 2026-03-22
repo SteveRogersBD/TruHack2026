@@ -8,6 +8,7 @@ import { Plus, Trash2, LogOut, ChevronLeft, ChevronRight, X } from 'lucide-react
 import { get, post, del } from '../../api/client.js'
 import useAuthStore from '../../store/useAuthStore.js'
 import useWorkspaceStore from '../../store/useWorkspaceStore.js'
+import { extractStructuredFromMessages } from '../../utils/structured.js'
 
 /* ── Spinner ──────────────────────────────────────────────────────── */
 function Spinner() {
@@ -129,6 +130,8 @@ export default function TopNav() {
   const setStructured      = useWorkspaceStore((s) => s.setStructured)
   const setLoading         = useWorkspaceStore((s) => s.setLoading)
   const resetTransientState = useWorkspaceStore((s) => s.resetTransientState)
+  const appMode             = useWorkspaceStore((s) => s.appMode)
+  const setAppMode          = useWorkspaceStore((s) => s.setAppMode)
 
   const [showNew,     setShowNew]     = useState(false)
   const [listLoading, setListLoading] = useState(false)
@@ -144,6 +147,7 @@ export default function TopNav() {
 
   const handleSelect = useCallback(async (session) => {
     resetTransientState()
+    setAppMode('normal')
     setLoading(true)
     setStructured(null)
     setMessages([])
@@ -153,11 +157,13 @@ export default function TopNav() {
         get(`/sessions/${session.id}/messages`),
       ])
       setCurrentSession(sd)
-      setMessages(md.messages || [])
+      const nextMessages = md.messages || []
+      setMessages(nextMessages)
+      setStructured(extractStructuredFromMessages(nextMessages))
     } catch {
       setCurrentSession(session); setMessages([])
     } finally { setLoading(false) }
-  }, [resetTransientState, setCurrentSession, setMessages, setLoading, setStructured])
+  }, [resetTransientState, setCurrentSession, setMessages, setLoading, setStructured, setAppMode])
 
   const handleDelete = useCallback(async (id) => {
     await del(`/sessions/${id}`)
@@ -168,19 +174,20 @@ export default function TopNav() {
     }
   }, [sessions, currentSession, resetTransientState, setSessions, setCurrentSession, setMessages, setStructured])
 
-  const handleCreate = useCallback(async () => {
+  const handleCreate = useCallback(async (customTitle = 'New Chat', mode = 'normal') => {
+    setAppMode(mode)
     resetTransientState()
     setLoading(true)
     setStructured(null)
     setMessages([])
     try {
-      const data = await post('/sessions', { title: 'New Chat' })
+      const data = await post('/sessions', { title: customTitle })
       setSessions([data, ...sessions])
       setCurrentSession(data)
     } catch {} finally {
       setLoading(false)
     }
-  }, [sessions, resetTransientState, setSessions, setCurrentSession, setMessages, setStructured, setLoading])
+  }, [sessions, resetTransientState, setSessions, setCurrentSession, setMessages, setStructured, setLoading, setAppMode])
 
   function scrollLeft()  { scrollRef.current?.scrollBy({ left: -200, behavior: 'smooth' }) }
   function scrollRight() { scrollRef.current?.scrollBy({ left:  200, behavior: 'smooth' }) }
@@ -248,7 +255,7 @@ export default function TopNav() {
         {sessions.map((s) => (
           <SessionTab
             key={s.id} session={s}
-            isActive={currentSession?.id === s.id}
+            isActive={currentSession?.id === s.id && appMode === 'normal'}
             onSelect={handleSelect}
             onDelete={handleDelete}
           />
@@ -269,12 +276,12 @@ export default function TopNav() {
       {/* Divider */}
       <div style={{ width: '0.5px', height: 20, background: 'rgba(255,255,255,0.1)', flexShrink: 0 }} />
 
-      {/* New session button */}
+      {/* New session button with options */}
       <div style={{ position: 'relative', flexShrink: 0 }}>
         <button
           type="button"
-          onClick={handleCreate}
-          aria-label="New session"
+          onClick={() => setShowNew(!showNew)}
+          aria-label="New session options"
           style={{
             display: 'flex', alignItems: 'center', gap: 5,
             padding: '0 12px', height: 30, borderRadius: 8,
@@ -290,6 +297,69 @@ export default function TopNav() {
           <Plus size={13} />
           New
         </button>
+
+        {showNew && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '100%',
+              right: 0,
+              marginTop: 8,
+              width: 160,
+              background: '#0d0d12',
+              border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: 10,
+              boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+              zIndex: 100,
+              padding: 6,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 2,
+            }}
+          >
+            <button
+              onClick={() => {
+                setShowNew(false)
+                handleCreate('Study Session', 'normal')
+              }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '8px 10px', borderRadius: 6,
+                background: 'transparent', border: 'none',
+                color: '#EDEDEF', fontSize: 12, textAlign: 'left',
+                cursor: 'pointer',
+                transition: 'background 150ms ease',
+                width: '100%',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg>
+              Chat
+            </button>
+            <button
+              onClick={() => {
+                setShowNew(false)
+                setAppMode('attachment')
+                setCurrentSession(null)
+              }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '8px 10px', borderRadius: 6,
+                background: 'transparent', border: 'none',
+                color: '#EDEDEF', fontSize: 12, textAlign: 'left',
+                cursor: 'pointer',
+                transition: 'background 150ms ease',
+                width: '100%',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.51a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+              Attachment
+            </button>
+          </div>
+        )}
       </div>
 
       {/* User info + logout */}

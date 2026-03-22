@@ -14,6 +14,7 @@ import useWorkspaceStore from '../../store/useWorkspaceStore.js';
 import { Globe, X, Paperclip } from 'lucide-react';
 import { formatModeLabel, inferChatMode, isYoutubeUrl, normalizeUrl } from '../../utils/chatMode.js';
 import { buildResourcePreviewStructured } from '../../utils/resourcePreview.js';
+import { isStructuredResponse } from '../../utils/structured.js';
 
 /* ------------------------------------------------------------------ */
 /* Thinking indicator                                                    */
@@ -275,9 +276,13 @@ export default function TutorPanel({ sessionId, onNewStructured }) {
         addMessage(data.reply);
         setAttachedUrl('');
 
-        if (data.structured) {
-          setStructured(data.structured);
-          if (onNewStructured) onNewStructured(data.structured);
+        const nextStructured = isStructuredResponse(data.structured)
+          ? data.structured
+          : (isStructuredResponse(data.reply?.meta) ? data.reply.meta : null);
+
+        if (nextStructured) {
+          setStructured(nextStructured);
+          if (onNewStructured) onNewStructured(nextStructured);
         }
       } catch (err) {
         // Add error pseudo-message

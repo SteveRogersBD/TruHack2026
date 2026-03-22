@@ -24,4 +24,4 @@ sympy
 requests
 
 yt-dlp
-google-generativeai
+google-generativea
